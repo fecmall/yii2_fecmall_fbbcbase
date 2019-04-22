@@ -1,0 +1,10 @@
+.systemConfig .pageFormContent label{
+    width:15%;
+}
+
+.systemConfig .pageFormContent p.edit_p select, .systemConfig  .pageFormContent p.edit_p input {
+    width:75%;
+}
+.systemConfig .pageFormContent p{
+    width:100%;
+}
