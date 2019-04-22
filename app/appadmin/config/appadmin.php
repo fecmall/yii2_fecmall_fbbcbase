@@ -1,10 +1,10 @@
 <?php
 /**
- * FecShop file.
+ * FecMall file.
  *
- * @link http://www.fecshop.com/
- * @copyright Copyright (c) 2016 FecShop Software LLC
- * @license http://www.fecshop.com/license/
+ * @link http://www.fecmall.com/
+ * @copyright Copyright (c) 2016 FecMall Software LLC
+ * @license http://www.fecmall.com/license
  */
 // 本文件在app/web/index.php 处引入。
 // fecshop的核心模块
