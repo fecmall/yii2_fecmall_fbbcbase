@@ -25,7 +25,7 @@ $cssOptions = [
 \Yii::$service->page->asset->jsOptions 	= [];
 \Yii::$service->page->asset->cssOptions = $cssOptions;
 \Yii::$service->page->asset->register($this);
-$logoPath = $this->assetManager->publish('@fbbcbase/app/appadmin/theme/bbc/base/assets/images/logo_meixiang.png');
+$logoPath = $this->assetManager->publish('@fbbcbase/app/appadmin/theme/bbc/base/assets/images/fecmall_logo.png');
 ?>
 
 <?php $this->beginPage() ?>
@@ -35,7 +35,7 @@ $logoPath = $this->assetManager->publish('@fbbcbase/app/appadmin/theme/bbc/base/
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <?= Html::csrfMetaTags() ?>
-    <title><?= $this->title ? Html::encode($this->title) : Yii::$service->page->translate->__('MeiXiangZG Admin Manager System') ?></title>
+    <title><?= $this->title ? Html::encode($this->title) : Yii::$service->page->translate->__('FecMall Admin Manager System') ?></title>
     <?php $this->head() ?>
 </head>
 <body>
@@ -81,7 +81,7 @@ $logoPath = $this->assetManager->publish('@fbbcbase/app/appadmin/theme/bbc/base/
                  <h1 class="login_logo">
                      <a href="<?= Yii::$app->getHomeUrl()  ?>" style="font-size:35px;text-decoration:none;
                     color:#6f8992;">
-                         <img alt="Fecshop" src="<?= Yii::getAlias($logoPath[1]); ?>">
+                         <img  style="width:230px;" alt="Fecshop" src="<?= Yii::getAlias($logoPath[1]); ?>">
                      </a>
                  </h1>
                  <?= $content; ?>
@@ -95,7 +95,7 @@ $logoPath = $this->assetManager->publish('@fbbcbase/app/appadmin/theme/bbc/base/
              </div>
          </div>
          <div id="login_footer">
-             Copyright &copy; 2016 <a style="text-decoration:none" target="_blank" href="http://www.meixiangzg.com">www.meixiangzg.com</a> <?= Yii::$service->page->translate->__('MeiXiangZG Admin Manager System'); ?>Inc. All Rights Reserved.
+             Copyright &copy; 2016 <a style="text-decoration:none" target="_blank" href="http://www.fecmall.com">www.fecmall.com</a> <?= Yii::$service->page->translate->__('FecMall Admin Manager System'); ?>Inc. All Rights Reserved.
          </div>
 
 	</div>

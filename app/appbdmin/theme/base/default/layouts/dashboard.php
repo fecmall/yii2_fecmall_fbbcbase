@@ -82,7 +82,7 @@ $cssOptions = [
 \Yii::$service->page->asset->jsOptions 	= \yii\helpers\ArrayHelper::merge($jsOptions, \Yii::$service->page->asset->jsOptions);
 \Yii::$service->page->asset->cssOptions = \yii\helpers\ArrayHelper::merge($cssOptions, \Yii::$service->page->asset->cssOptions);				
 \Yii::$service->page->asset->register($this);
-$logoPath = $this->assetManager->publish('@fbbcbase/app/appbdmin/theme/base/default/assets/images/logo_meixiang.png');
+$logoPath = $this->assetManager->publish('@fbbcbase/app/appbdmin/theme/base/default/assets/images/fecmall_logo.png');
 ?>
 
 <?php $this->beginPage() ?>
@@ -93,7 +93,7 @@ $logoPath = $this->assetManager->publish('@fbbcbase/app/appbdmin/theme/base/defa
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <?= Html::csrfMetaTags() ?>
-    <title><?= $this->title ? Html::encode($this->title) : Yii::$service->page->translate->__('MeiXiangZG bdmin Manager System') ?></title>
+    <title><?= $this->title ? Html::encode($this->title) : Yii::$service->page->translate->__('FecMall bdmin Manager System') ?></title>
 	<link href="//netdna.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" >
 	<?php $this->head() ?>
 <script> 
@@ -120,7 +120,7 @@ $logoPath = $this->assetManager->publish('@fbbcbase/app/appbdmin/theme/base/defa
 	<div id="layout">
 		<div id="header">
 			<div class="headerNav">
-				<a target="_blank" class="logo" href="http://www.meixiangzg.com">
+				<a target="_blank" class="logo" href="http://www.fecmall.com">
 					<img style="height:30px;" src="<?= Yii::getAlias($logoPath[1]); ?>" alt="Fecshop" />
 				</a>
                   <?php $currentLangCode = Yii::$service->bdmin->getCurrentLangCode() ?>
@@ -211,8 +211,8 @@ $logoPath = $this->assetManager->publish('@fbbcbase/app/appbdmin/theme/base/defa
     <div class="container">
         <div style="position:absolute;z-index: 99999;" id="footer">
             © 2015-2019
-            <a style="text-decoration:none" href="http://www.meixiangzg.com" target="_blank">
-                <?= Yii::$service->page->translate->__('MeiXiangZG Team'); ?> - www.meixiangzg.com
+            <a style="text-decoration:none" href="http://www.fecmall.com" target="_blank">
+                <?= Yii::$service->page->translate->__('FecMall Team'); ?> - www.fecmall.com
             </a>
         </div>
     </div>

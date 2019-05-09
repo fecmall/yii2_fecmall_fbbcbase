@@ -25,7 +25,7 @@ $cssOptions = [
 \Yii::$service->page->asset->jsOptions 	= [];
 \Yii::$service->page->asset->cssOptions = $cssOptions;
 \Yii::$service->page->asset->register($this);
-$logoPath = $this->assetManager->publish('@fbbcbase/app/appbdmin/theme/base/default/assets/images/logo_meixiang.png');  // blue_logo.png
+$logoPath = $this->assetManager->publish('@fbbcbase/app/appbdmin/theme/base/default/assets/images/fecmall_logo.png');  // blue_logo.png
 ?>
 
 <?php $this->beginPage() ?>
@@ -81,7 +81,7 @@ $logoPath = $this->assetManager->publish('@fbbcbase/app/appbdmin/theme/base/defa
                  <h1 class="login_logo">
                      <a href="<?= Yii::$app->getHomeUrl()  ?>" style="font-size:35px;text-decoration:none;
                     color:#6f8992;">
-                         <img alt="Fecshop" src="<?= Yii::getAlias($logoPath[1]); ?>">
+                         <img style="width:230px;" alt="Fecshop" src="<?= Yii::getAlias($logoPath[1]); ?>">
                      </a>
                  </h1>
                  <?= $content; ?>
@@ -95,7 +95,7 @@ $logoPath = $this->assetManager->publish('@fbbcbase/app/appbdmin/theme/base/defa
              </div>
          </div>
          <div id="login_footer">
-             Copyright &copy; 2016 <a style="text-decoration:none" target="_blank" href="http://www.mexiangzg.com">www.mexiangzg.com</a> <?= Yii::$service->page->translate->__('MeiXiangZG Bdmin'); ?> Inc. All Rights Reserved.
+             Copyright &copy; 2016 <a style="text-decoration:none" target="_blank" href="http://www.fecmall.com">www.fecmall.com</a> <?= Yii::$service->page->translate->__('FecMall Bdmin'); ?> Inc. All Rights Reserved.
          </div>
 
 	</div>

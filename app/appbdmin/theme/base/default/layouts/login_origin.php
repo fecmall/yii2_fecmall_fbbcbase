@@ -25,7 +25,7 @@ $cssOptions = [
 \Yii::$service->page->asset->jsOptions 	= [];
 \Yii::$service->page->asset->cssOptions = $cssOptions;
 \Yii::$service->page->asset->register($this);
-$logoPath = $this->assetManager->publish('@fbbcbase/app/appbdmin/theme/base/default/assets/images/logo_meixiang.png');  // blue_logo.png
+$logoPath = $this->assetManager->publish('@fbbcbase/app/appbdmin/theme/base/default/assets/images/fecmall_logo.png');  // blue_logo.png
 ?>
 
 <?php $this->beginPage() ?>

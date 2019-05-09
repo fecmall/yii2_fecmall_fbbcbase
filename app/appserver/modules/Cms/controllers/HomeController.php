@@ -43,11 +43,11 @@ class HomeController extends \fecshop\app\appserver\modules\Cms\controllers\Home
     
     public function getAdvertise(){
         
-        $bigImg1 = Yii::$service->image->getImgUrl('custom/home_img_1.jpg','apphtml5');
-        $bigImg2 = Yii::$service->image->getImgUrl('custom/home_img_2.jpg','apphtml5');
-        $bigImg3 = Yii::$service->image->getImgUrl('custom/home_img_3.jpg','apphtml5');
-        $smallImg1 = Yii::$service->image->getImgUrl('custom/home_small_1.jpg','apphtml5');
-        $smallImg2 = Yii::$service->image->getImgUrl('custom/home_small_2.jpg','apphtml5');
+        $bigImg1 = Yii::$service->image->getImgUrl('custom/home_img_1.jpg','appserver');
+        $bigImg2 = Yii::$service->image->getImgUrl('custom/home_img_2.jpg','appserver');
+        $bigImg3 = Yii::$service->image->getImgUrl('custom/home_img_3.jpg','appserver');
+        $smallImg1 = Yii::$service->image->getImgUrl('custom/home_small_1.jpg','appserver');
+        $smallImg2 = Yii::$service->image->getImgUrl('custom/home_small_2.jpg','appserver');
         
         return [
             'bigImgList' => [

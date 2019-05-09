@@ -80,7 +80,7 @@ $cssOptions = [
 \Yii::$service->page->asset->jsOptions 	= \yii\helpers\ArrayHelper::merge($jsOptions, \Yii::$service->page->asset->jsOptions);
 \Yii::$service->page->asset->cssOptions = \yii\helpers\ArrayHelper::merge($cssOptions, \Yii::$service->page->asset->cssOptions);				
 \Yii::$service->page->asset->register($this);
-$logoPath = $this->assetManager->publish('@fbbcbase/app/appbdmin/theme/base/default/assets/images/logo_meixiang.png');
+$logoPath = $this->assetManager->publish('@fbbcbase/app/appbdmin/theme/base/default/assets/images/fecmall_logo.png');
 ?>
 
 <?php $this->beginPage() ?>
