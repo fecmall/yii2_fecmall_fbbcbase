@@ -606,40 +606,6 @@ class CategoryController extends \fecshop\app\appserver\modules\Catalog\controll
             //$where[] = [$this->_filterPriceAttr => ['$lte' => (float) $l_price]];
         }
         $where['category'] = $this->_primaryVal;
-        //$where[] = ['category' => $this->_primaryVal];
-        /**
-          * 根据供应商，进行产品过滤。
-          * 首先判断，是否只能看到customer绑定的供应商的产品
-          */
-        if (Yii::$service->helper->isLoginCustomerOnlySeeSupplierProduct()) {
-            // 登陆用户只能绑定的供应商的产品
-            $identity = Yii::$app->user->identity;
-            $bdmin_user_id = $identity->bdmin_user_id;
-            if ($bdmin_user_id) {
-                $where['bdmin_user_id'] = $bdmin_user_id;
-                //$where[] = ['bdmin_user_id' => $bdmin_user_id];
-            }
-        }
-        // 推广store uuid权限
-        if ($bdmin_user_id = Yii::$service->helper->getGuestUrlParamRelateBdminUserId()) {
-            $where['bdmin_user_id'] = $bdmin_user_id;
-        }
-        // 仓库权限
-        if (Yii::$service->helper->isLoginCustomerOnlySeeSelectedWarehouseProduct()) {
-            $identity = Yii::$app->user->identity; 
-            $warehouses = $identity['warehouses']; 
-            $warehouseArr = explode(',', $warehouses);
-            if (!empty($warehouseArr) && is_array($warehouseArr)) {
-                //$where[] = ['in', 'warehouse', $warehouseArr];
-                $where['warehouse']['$in'] = $warehouseArr;
-                
-            } else {
-                // 使用参数`no_warehouse_customer`,让起查不出来产品
-                $where[] = ['warehouse' => 'no_warehouse_customer'];
-            }
-        }
-        
-        //var_dump($where);exit;
         return $where;
     }
     /**

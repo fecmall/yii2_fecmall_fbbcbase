@@ -112,9 +112,21 @@ class Cart extends \fecshop\services\Cart
      * @param $region | String 省市code
      * 得到购物车中的信息。详情参看调用的函数注释
      */
-    protected function actionGetCartInfo($activeProduct = true, $shipping_method = '', $country = '', $region = '*')
+    protected function actionGetCartInfo2($activeProduct = true)
     {
-        return Yii::$service->cart->quote->getCartInfo($activeProduct, $shipping_method, $country, $region);
+        return Yii::$service->cart->quote->getCartInfo2($activeProduct);
+    }
+    
+    /**
+     * @param $postShippingMethod | Array
+     * [
+     *        'bdmin_user_id'   => 'shipping_method'
+     * ]
+     */
+    // 在下单页面，根据分销商得到分组的购物车信息
+    public function getCartOrderInfo($postShippingMethod='') 
+    {
+        return Yii::$service->cart->quote->getCartOrderInfo($postShippingMethod);
     }
 
     /**

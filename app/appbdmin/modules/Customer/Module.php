@@ -19,6 +19,8 @@ class Module extends \fec\AdminModule
     
     public function init()
     {
+        echo 'errorVisit';
+        exit;
         $nameSpace = __NAMESPACE__;
         // 以下代码必须指定
         // 设置模块 controller namespace的文件路径

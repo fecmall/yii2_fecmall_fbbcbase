@@ -323,14 +323,5 @@ class SystemConfig extends Service
         return $this->baseConfigContent;
     }
     
-    public function getBdminDefaultWarehouseArr($bdmin_user_id) {
-        $bdminBaseConfig = $this->getBdminBaseConfig($bdmin_user_id);
-        $default_warehouse = $bdminBaseConfig['default_warehouse'];
-        if (!$default_warehouse) {
-            return [];
-        }
-        $default_warehouse_arr = explode('，',$default_warehouse);
-        return $default_warehouse_arr;
-    }
     
 }

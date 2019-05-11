@@ -149,42 +149,12 @@ class XunSearch extends \fecshop\services\search\XunSearch
         $productIds = [];
         if ($productM && $enableStatus == $productM['status']) {
             $productIds[] = $productM['_id'];  
-            if (Yii::$service->helper->isLoginCustomerOnlySeeSupplierProduct() ) {
-                $identity = Yii::$app->user->identity;
-                $bdmin_user_id = $identity['bdmin_user_id'];
-                if ($bdmin_user_id != $productM['bdmin_user_id']) {
-                    $productIds = [];
-                }
-            } 
-            if (Yii::$service->helper->isLoginCustomerOnlySeeSelectedWarehouseProduct()) {
-                $identity = Yii::$app->user->identity; 
-                $warehouses = $identity['warehouses']; 
-                $warehouseArr = explode(',', $warehouses);
-                if (empty($warehouseArr) || !in_array($productM['warehouse'], $warehouseArr)) {
-                    $productIds = [];
-                }
-            }
-            // 推广store uuid权限
-            if ($bdmin_user_id = Yii::$service->helper->getGuestUrlParamRelateBdminUserId() ) {
-                if ($bdmin_user_id != $productM['bdmin_user_id']) {
-                    $productIds = [];
-                }
-            } 
-            
         } 
         if (empty($productIds)) {
             if (!isset($where['status'])) {
                 $where['status'] = Yii::$service->product->getEnableStatus();
             }
-            // 供应商权限：是否在搜索结果中只有供应商对应的产品？
-            if (Yii::$service->helper->isLoginCustomerOnlySeeSupplierProduct()) {
-                $identity = Yii::$app->user->identity;
-                $where['bdmin_user_id'] = $identity['bdmin_user_id'];
-            }
-            // 推广store uuid权限
-            if ($bdmin_user_id = Yii::$service->helper->getGuestUrlParamRelateBdminUserId() ) {
-                $where['bdmin_user_id'] = $bdmin_user_id;
-            } 
+            
             $XunSearchQuery = $this->_searchModel->find()->asArray();
             $XunSearchQuery->fuzzy($this->fuzzy);
             $XunSearchQuery->synonyms($this->synonyms);
@@ -194,19 +164,6 @@ class XunSearch extends \fecshop\services\search\XunSearch
                     $XunSearchQuery->where($where['$text']['$search']);
                 } else {
                     return [];
-                }
-                
-                // 用户仓库过滤，如果选项开启，则执行如下操作
-                if (Yii::$service->helper->isLoginCustomerOnlySeeSelectedWarehouseProduct()) {
-                    $identity = Yii::$app->user->identity;
-                    $warehouses = $identity['warehouses']; 
-                    $warehouseArr = explode(',', $warehouses);
-                    if (is_array($warehouseArr) && !empty($warehouseArr)) {
-                        $XunSearchQuery->andWhere(['in', 'warehouse', $warehouseArr]);
-                    } else {
-                        
-                        return [];  // 如果用户没有设置warehouse，则无法搜索产品。
-                    }
                 }
                 
                 foreach ($where as $k => $v) {

@@ -29,22 +29,7 @@ use fecadmin\models\AdminRole;
 				
 				<?= $editBar; ?>
 				<?= $lang_attr ?>
-                <fieldset id="fieldset_table_qbe">
-					<legend style="color:#cc0000"><?= Yii::$service->page->translate->__('warehouse') ?></legend>
-					<div>
-						<ul>
-                               <?php foreach ($warehouses as $warehouse): ?>
-                               <li>
-                                   <label>
-                                       <input type="checkbox" name="editFormData[warehouses][]"  value="<?= $warehouse ?>" <?= in_array($warehouse, $selectWarehouses) ?  'checked="checked"' : ''?>    />
-                                       <span><?= $warehouse ?></span>
-                                   </label>
-                               </li>
-                               <?php endforeach; ?>
-                           </ul>
-					</div>
-				</fieldset>
-				
+                
 		</div>
 	
 		<div class="formBar">

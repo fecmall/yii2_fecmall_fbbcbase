@@ -251,18 +251,16 @@ class Item extends \fecshop\services\order\Item
      * @param $order_id | Int
      * 保存订单的item信息
      */
-    protected function actionSaveOrderItems($items, $order_id, $store)
+    protected function actionSaveOrderItems2($items, $order_id, $store, $bdmin_user_id)
     {
         /**
          * 由于是通过session查订单的方式，而不是新建，paypal报错可能多次下单（更新方式），
          * 因此在添加订单产品的时候先进行一次删除产品操作。
          */
         $customer_id = '';
-        $bdmin_user_id = '';
         if (!Yii::$app->user->isGuest) {
             $identity = Yii::$app->user->identity;
             $customer_id = $identity->id;
-            $bdmin_user_id = $identity->bdmin_user_id;
         }
         $this->_itemModel->deleteAll(['order_id' => $order_id]);
         if (is_array($items) && !empty($items) && $order_id && $store) {
@@ -276,7 +274,7 @@ class Item extends \fecshop\services\order\Item
                 $myOrderItem['created_at'] = time();
                 $myOrderItem['updated_at'] = time();
                 $myOrderItem['product_id'] = $item['product_id'];
-                $myOrderItem['warehouse'] = $item['warehouse'];
+                
                 $myOrderItem['sku'] = $item['sku'];
                 $myOrderItem['name'] = $item['name'];
                 $myOrderItem['custom_option_sku'] = $item['custom_option_sku'];

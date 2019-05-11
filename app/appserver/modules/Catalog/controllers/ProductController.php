@@ -233,10 +233,6 @@ class ProductController extends \fecshop\app\appserver\modules\Catalog\controlle
         if (!Yii::$app->user->isGuest) {
             $servicePhoneConfig = Yii::$service->systemConfig->getCustomerFrontServiceBaseConfig();
             $phone = isset($servicePhoneConfig['phone']) ? $servicePhoneConfig['phone'] : '';
-        // 非登陆用户取 store-uuid 对应的供应商的电话
-        } else if ($bdmin_user_id = Yii::$service->helper->getGuestUrlParamRelateBdminUserId()){
-            $servicePhoneConfig = Yii::$service->systemConfig->getBdminBaseConfig($bdmin_user_id);
-            $phone = isset($servicePhoneConfig['phone']) ? $servicePhoneConfig['phone'] : '';
         // 取平台的电话。
         } else {
             $servicePhoneConfig = Yii::$service->systemConfig->getCustomerFrontServiceBaseConfig();
@@ -454,34 +450,7 @@ class ProductController extends \fecshop\app\appserver\modules\Catalog\controlle
         $spu = $this->_product['spu'];
         $select = array_merge($select, $this->_productSpuAttrArr);
         $where[] = ['spu' => $spu];
-        if ($bdmin_user_id = Yii::$service->helper->getGuestUrlParamRelateBdminUserId()) {
-            $where[] = ['bdmin_user_id' => $bdmin_user_id];
-        }
-        // 供应商权限
-        if (Yii::$service->helper->isLoginCustomerOnlySeeSupplierProduct()) {
-            $identity = Yii::$app->user->identity;
-            $bdmin_user_id = $identity->bdmin_user_id;
-            if ($bdmin_user_id) {
-                $where[] = ['bdmin_user_id' => $bdmin_user_id];
-                //$where[] = ['bdmin_user_id' => $bdmin_user_id];
-            }
-        }
-        // 推广store uuid权限
-        if ($bdmin_user_id = Yii::$service->helper->getGuestUrlParamRelateBdminUserId()) {
-            $where[] = ['bdmin_user_id' => $bdmin_user_id];
-        }
-        // 仓库权限
-        if (Yii::$service->helper->isLoginCustomerOnlySeeSelectedWarehouseProduct()) {
-            $identity = Yii::$app->user->identity; 
-            $warehouses = $identity['warehouses']; 
-            $warehouseArr = explode(',', $warehouses);
-            if (!empty($warehouseArr) && is_array($warehouseArr)) {
-                $where[] = ['in', 'warehouse', $warehouseArr];
-                //$where[] = ['warehouse' =>['$in' => $warehouseArr]];
-            } else {
-                $where[] = ['warehouse' => 'no_warehouse_customer'];
-            }
-        }
+        
         $filter = [
             'select'    => $select,
             'where'    => $where,
@@ -717,41 +686,12 @@ class ProductController extends \fecshop\app\appserver\modules\Catalog\controlle
                 
                 return false;
             }
-            // 供应商权限
-            if (Yii::$service->helper->isLoginCustomerOnlySeeSupplierProduct()) {
-                $identity = Yii::$app->user->identity;
-                $bdmin_user_id = $identity['bdmin_user_id'];
-                if ($bdmin_user_id != $product['bdmin_user_id']) {
-                    Yii::$service->helper->errors->add('you do not have role visit this product');
-                    
-                    return false;
-                }
-            }
-            // 推广store uuid权限
-            if ($bdmin_user_id = Yii::$service->helper->getGuestUrlParamRelateBdminUserId()) {
-                if ($bdmin_user_id != $product['bdmin_user_id']) {
-                    Yii::$service->helper->errors->add('you do not have role visit this product');
-                    
-                    return false;
-                }
-            }
-            // 仓库权限
-            if (Yii::$service->helper->isLoginCustomerOnlySeeSelectedWarehouseProduct()) {
-                $identity = Yii::$app->user->identity;
-                $warehouses = $identity['warehouses']; 
-                $warehouseArr = explode(',', $warehouses);
-                if (empty($warehouseArr) || !in_array($product['warehouse'], $warehouseArr)) {
-                    Yii::$service->helper->errors->add('you do not have warehouse role visit this product');
-                    
-                    return false;
-                }
-            }
+            
         } else {
             
             return false;
         }
         $bdmin_user_id = $product['bdmin_user_id'];
-        Yii::$service->helper->setProductBdminUserId($bdmin_user_id); 
         $this->_product = $product;
         Yii::$app->view->registerMetaTag([
             'name' => 'keywords',
@@ -778,15 +718,6 @@ class ProductController extends \fecshop\app\appserver\modules\Catalog\controlle
         $product = Yii::$service->product->getByPrimaryKey($primaryVal);
         $this->_product = $product;
         
-        // 仓库权限
-        if (Yii::$service->helper->isLoginCustomerOnlySeeSelectedWarehouseProduct()) {
-            $identity = Yii::$app->user->identity; 
-            $warehouses = $identity['warehouses']; 
-            $warehouseArr = explode(',', $warehouses);
-            if (empty($warehouseArr) || !in_array($product['warehouse'], $warehouseArr)) {
-                return false;
-            }
-        }
         return true;
     }
 

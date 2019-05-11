@@ -145,12 +145,7 @@ class Index extends AppadminbaseBlock implements AppadminbaseBlockInterface
                 'width'			=> '110',
                 'align' 		=> 'left',
             ],
-            [
-                'orderField'	=> 'uuid',
-                'label'			=> Yii::$service->page->translate->__('Uuid'),
-                'width'			=> '210',
-                'align' 		=> 'left',
-            ],
+            
             [
                 'orderField'	=> 'email',
                 'label'			=> Yii::$service->page->translate->__('Email'),

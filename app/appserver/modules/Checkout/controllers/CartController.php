@@ -224,4 +224,70 @@ class CartController extends \fecshop\app\appserver\modules\Checkout\controllers
         return $responseData;
     }
     
+    /** @return data example
+     *	[
+     *				'coupon_code' 	=> $coupon_code,
+     *				'grand_total' 	=> $grand_total,
+     *				'shipping_cost' => $shippingCost,
+     *				'coupon_cost' 	=> $couponCost,
+     *				'product_total' => $product_total,
+     *				'products' 		=> $products,
+     *	]
+     *			上面的products数组的个数如下：
+     *			$products[] = [
+     *					    'item_id' => $one['item_id'],
+     *						'product_id' 		=> $product_id ,
+     *						'qty' 				=> $qty ,
+     *						'custom_option_sku' => $custom_option_sku ,
+     *						'product_price' 	=> $product_price ,
+     *						'product_row_price' => $product_row_price ,
+     *						'product_name'		=> $product_one['name'],
+     *						'product_url'		=> $product_one['url_key'],
+     *						'product_image'		=> $product_one['image'],
+     *						'custom_option'		=> $product_one['custom_option'],
+     *						'spu_options' 		=> $productSpuOptions,
+     *				];
+     */
+    public function getCartInfo()
+    {
+        $cart_info = Yii::$service->cart->getCartInfo2(false);
+
+        if (isset($cart_info['products']) && is_array($cart_info['products'])) {
+            $bdmin_user_ids = [];
+            foreach ($cart_info['products'] as $bdmin_user_id => $bdmin_products) {
+                $bdmin_user_ids[] = $bdmin_user_id;
+                foreach ($bdmin_products as $k=>$product_one) {   
+                    
+                    // 设置名字，得到当前store的语言名字。
+                    $cart_info['products'][$bdmin_user_id][$k]['name'] = Yii::$service->store->getStoreAttrVal($product_one['product_name'], 'name');
+                    unset($cart_info['products'][$bdmin_user_id][$k]['product_name']);
+                    // 设置图片
+                    if (isset($product_one['product_image']['main']['image'])) {
+                        $productImg = $product_one['product_image']['main']['image'];
+                        $cart_info['products'][$bdmin_user_id][$k]['img_url'] = Yii::$service->product->image->getResize($productImg,[150,150],false);
+                    }
+                    unset($cart_info['products'][$bdmin_user_id][$k]['product_image']);
+                    // 产品的url
+                    $cart_info['products'][$bdmin_user_id][$k]['url'] = '/catalog/product/'.$product_one['product_id'];
+
+                    $custom_option = isset($product_one['custom_option']) ? $product_one['custom_option'] : '';
+                    $custom_option_sku = $product_one['custom_option_sku'];
+                    // 将在产品页面选择的颜色尺码等属性显示出来。
+                    $custom_option_info_arr = $this->getProductOptions($product_one);
+                    $cart_info['products'][$bdmin_user_id][$k]['custom_option_info'] = $custom_option_info_arr;
+                    // 设置相应的custom option 对应的图片
+                    $custom_option_image = isset($custom_option[$custom_option_sku]['image']) ? $custom_option[$custom_option_sku]['image'] : '';
+                    if ($custom_option_image) {
+                        $cart_info['products'][$bdmin_user_id][$k]['img_url'] = Yii::$service->product->image->getResize($custom_option_image,[150,150],false);
+                    }
+                    $activeStatus = Yii::$service->cart->quoteItem->activeStatus;
+                    $cart_info['products'][$bdmin_user_id][$k]['active'] = ($product_one['active'] == $activeStatus) ? 1 : 0;
+                }
+                $cart_info['bdmin'] = Yii::$service->bdminUser->bdminUser->getIdAndNameArrByIds($bdmin_user_ids);
+                 
+            }
+        }
+
+        return $cart_info;
+    }
 }

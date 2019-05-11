@@ -10,6 +10,7 @@
 namespace fbbcbase\services;
 
 use Yii;
+use Ramsey\Uuid\Uuid;
 
 /**
  * Order services.
@@ -113,6 +114,7 @@ class Order extends \fecshop\services\Order
 
     // 作为保存incrementId到session的key，把当前的order incrementId保存到session的时候，对应的key就是该常量。
     const CURRENT_ORDER_INCREAMENT_ID = 'current_order_increament_id';
+    const CURRENT_ORDER_TRADE_NO = 'current_order_trade_no';
     
     protected $_orderModelName = '\fbbcbase\models\mysqldb\Order';
 
@@ -363,6 +365,50 @@ class Order extends \fecshop\services\Order
 
         return $this->_currentOrderInfo;
     }
+    
+    protected $_currentOrderInfos;
+    //  从session中取出来交易号，然后得到订单数组
+    public function getCurrentOrderInfos($reflush = false)
+    {
+        if (!$this->_currentOrderInfos || $reflush) {
+            $payNo = $this->getSessionTradeNo();
+            if ($this->paymentCodeIsPaymentNo($payNo)) {
+                $this->_currentOrderInfos = $this->getOrdersInfoByPayNo($payNo);
+            } else {
+                $this->_currentOrderInfos[] = $this->getOrderInfoByIncrementId($payNo);
+            }
+        }
+
+        return $this->_currentOrderInfos;
+    }
+    
+    // 通过传递给第三方支付传递的订单交易号，得到订单数组
+    public function getOrderModelsByTradeNo($tradeNo)
+    {
+        $orders  = [];
+        if ($this->paymentCodeIsPaymentNo($tradeNo)) {
+            $orders = $this->getByPayNo($tradeNo, false);
+        } else {
+            $order_model = $this->getByIncrementId($tradeNo);
+            if ($order_model['increment_id']) {
+               $orders[] = $order_model;
+           }
+        }
+        
+        return  $orders;
+    }
+    
+    public function getOrderGrandTotalByTradeNo($tradeNo)
+    {
+        $orders = $this->getOrdersByTradeNo($tradeNo);
+        $grandTotal = 0;
+        if (is_array($orders) || !empty($orders)) {
+            foreach ($orders as $order) {
+                $grandTotal += $order['grand_total'];
+            }
+        }
+        return $grandTotal;
+    }
 
     /**
      * @param $increment_id | String 订单编号
@@ -392,6 +438,53 @@ class Order extends \fecshop\services\Order
 
         return $order_info;
     }
+    
+    /**
+     * @param $increment_id | String 订单编号
+     * @return array
+     *               通过increment_id 从数据库中取出来订单数据，
+     *               然后进行一系列的处理，返回订单数组数据。
+     */
+    protected function actionGetOrdersInfoByPayNo($payNo)
+    {
+        $orders = $this->getByPayNo($payNo);
+        if (!is_array($orders) || empty($orders)) {
+            return null;
+        }
+        $orderArr = [];
+        foreach ($orders as $one) {
+            $primaryKey = $this->getPrimaryKey();
+            if (!isset($one[$primaryKey]) || empty($one[$primaryKey])) {
+                return;
+            }
+            $order_info = [];
+            foreach ($one as $k=>$v) {
+                $order_info[$k] = $v;
+            }
+            $order_info['customer_address_state_name']      = Yii::$service->helper->country->getStateByContryCode($order_info['customer_address_country'], $order_info['customer_address_state']);
+            $order_info['customer_address_country_name']    = Yii::$service->helper->country->getCountryNameByKey($order_info['customer_address_country']);
+            $order_info['currency_symbol']                  = Yii::$service->page->currency->getSymbol($order_info['order_currency_code']);
+            $order_info['products']                         = Yii::$service->order->item->getByOrderId($one[$primaryKey]);
+            $orderArr[] = $order_info;
+        }
+        
+        return $orderArr;
+    }
+    
+    public function getByPayNo($payNo, $isArray=true)
+    {
+        $filter = [
+            'where' => [
+                ['payment_no' => $payNo],
+            ],
+            'fetchAll' => true,
+            'asArray' => $isArray,
+        ];
+        $data = $this->coll($filter);
+        
+        return $data['coll'];
+    }
+    
     
     protected function actionGetorderinfocoll($filter = '')
     {
@@ -612,44 +705,70 @@ class Order extends \fecshop\services\Order
      */
     protected function actionUpdatePaymentMethod($increment_id, $payment_method, $paramIsVerifyed = false)
     {
+        
         // 验证payment method的合法性
         if (!$paramIsVerifyed && !Yii::$service->payment->ifIsCorrectStandard($payment_method)) {
+            
             Yii::$service->helper->errors->add('order payment method is invalid');
             
             return false;
         }
+        
+        
+        $orderArr = [];
         // 得到订单编号
         if ($increment_id) {
             // 如果存在传递过来的订单编号，那么进行session service保存，方便后面进行支付。
-            $this->setSessionIncrementId($increment_id);
+            //$this->setSessionIncrementId($increment_id);
+            $this->setSessionTradeNo($increment_id);
+            // 得到订单
+            $order = $this->getByIncrementId($increment_id);
+            if (!isset($order['increment_id']) || !$order['increment_id']) {
+                Yii::$service->helper->errors->add('order increment id: {increment_id} is not exist', ['increment_id' => $order['increment_id']]);
+                
+                return false;
+            }
+            $orderArr[] = $order;
         } else {
-            $increment_id = $this->getSessionIncrementId();
+            $payment_no = $this->getSessionTradeNo();
+            $orderArr = $this->getByPayNo($payment_no, false);
         }
-        // 得到订单
-        $order = $this->getByIncrementId($increment_id);
-        if (!isset($order['increment_id']) || !$order['increment_id']) {
-            Yii::$service->helper->errors->add('order increment id: {increment_id} is not exist', ['increment_id' => $order['increment_id']]);
-            
+        
+        if (!is_array($orderArr) || empty($orderArr)) {
+            Yii::$service->helper->errors->add('current payment order is empty');
+                
             return false;
         }
-        // 判断订单是否属于当前的用户
-        if (!Yii::$app->user->isGuest) {
-            $identity = Yii::$app->user->identity;
-            if ($identity['id'] != $order['customer_id']) {
-                Yii::$service->helper->errors->add('you do not have role to update this order');
+        
+        // 批量更改订单的支付方式
+        foreach ($orderArr as $order) {
+            // 判断订单是否属于当前的用户
+            if (!Yii::$app->user->isGuest) {
+                $identity = Yii::$app->user->identity;
+                if ($identity['id'] != $order['customer_id']) {
+                    Yii::$service->helper->errors->add('you do not have role to update this order');
+                
+                    return false;
+                }
+            }
+            // 查看订单状态 , 是否满足支付条件？   
+            if ($order->order_status != $this->payment_status_pending ||  $order->order_operate_status != $this->operate_status_normal ) {
+                Yii::$service->helper->errors->add('order can not update payment method');
+                
+                return false;
+            }
             
+            // 更新订单状态
+            $order->payment_method = $payment_method;
+            $order->save();
+            $saveOrderStatus = $order->save();
+            if (!$saveOrderStatus) {
+                Yii::$service->helper->errors->add('update order payment(model save) fail');
+                
                 return false;
             }
         }
-        // 更新订单状态
-        $order->payment_method = $payment_method;
-        $order->save();
-        $saveOrderStatus = $order->save();
-        if (!$saveOrderStatus) {
-            Yii::$service->helper->errors->add('update order payment(model save) fail');
-            
-            return false;
-        }
+        
         
         return true;
     }
@@ -665,18 +784,41 @@ class Order extends \fecshop\services\Order
         $increment_id = isset($orderModel['increment_id']) ? $orderModel['increment_id'] : '';
         return Yii::$service->order->getOrderInfoByIncrementId($increment_id);
     }
+    
+    public function getOrdersByByPaymentToken($token)
+    {
+        $coll = $this->_orderModel->find()->where(['payment_token' => $token])
+            ->all();
+        if (!is_array($coll) || empty($coll)) {
+            return null;
+        }
+        
+        return $coll ;
+    }
+    
+    public function getInfosByPaymentToken($token)
+    {
+        $coll = $this->getOrdersByByPaymentToken($token);
+        $orderInfoArr = [];
+        foreach ($coll as $orderModel) {
+            $increment_id = isset($orderModel['increment_id']) ? $orderModel['increment_id'] : '';
+            $orderInfoArr[] = Yii::$service->order->getOrderInfoByIncrementId($increment_id);
+        }
+        
+        return $orderInfoArr;
+    }
 
     /**
      * @param $address | Array 货运地址
      * @param $shipping_method | String 货运快递方式
-     * @param $payment_method | Array 支付方式、
+     * @param $payment_method | Array 支付方式、['bdmin_user_id'  => 'shipping_methods']
      * @param $clearCartAndDeductStock | boolean 是否清空购物车，并扣除库存，这种情况是先 生成订单，在支付的情况下失败的处理方式。
      * @param $token | string 代表 通过payment_token得到order，然后更新order信息的方式生成order，这个是paypal购物车express支付对应的功能
      * @param $order_remark | string , 订单备注
      * @return bool 通过购物车的数据生成订单是否成功
      *              通过购物车中的产品信息，以及传递的货运地址，货运快递方式，支付方式生成订单。
      */
-    protected function actionGenerateOrderByCart($address, $shipping_method, $payment_method, $clearCart = true, $token = '', $order_remark = '')
+    protected function actionGenerateOrderByCart($address, $shipping_methods, $payment_methods, $clearCart = true, $token = '', $order_remark = '')
     {
         
         $cart = Yii::$service->cart->quote->getCurrentCart();
@@ -688,59 +830,31 @@ class Order extends \fecshop\services\Order
         $currency_rate  = $currency_info['rate'];
         $country        = $address['country'];
         $state          = $address['state'];
-        $cartInfo       = Yii::$service->cart->getCartInfo(true, $shipping_method, $country, $state);
+        $cartInfo       = Yii::$service->cart->getCartOrderInfo($shipping_methods);
         // 检查cartInfo中是否存在产品
-        if (!is_array($cartInfo) && empty($cartInfo)) {
+        if (!is_array($cartInfo['cart_info']) && empty($cartInfo['cart_info'])) {
             Yii::$service->helper->errors->add('current cart product is empty');
 
             return false;
         }
+        
         // 扣除库存。（订单生成后，库存产品库存。）
         // 备注）需要另起一个脚本，用来处理半个小时后，还没有支付的订单，将订单取消，然后将订单里面的产品库存返还。
         // 如果是无限库存（没有库存就去采购的方式），那么不需要跑这个脚本，将库存设置的非常大即可。
-        $deductStatus = Yii::$service->product->stock->deduct($cartInfo['products']);
-        if (!$deductStatus) {
-            // 库存不足则返回
-            return false;
-        }
-        // 检查供应商权限: 登陆用户只能购买绑定的供应商的产品
-        if (Yii::$service->helper->isLoginCustomerOnlySeeSupplierProduct()) {
-            $identity = Yii::$app->user->identity;
-            $bdmin_user_id = $identity->bdmin_user_id;
-            foreach ($cartInfo['products'] as $cart_product_one) {
-                if ( $bdmin_user_id != $cart_product_one['bdmin_user_id']) {
-                    Yii::$service->helper->errors->add('you do not have role to order product sku: {product_sku}', ['product_sku' => $cart_product_one['sku']]);
-                    return false;
-                }
-            }
-        }
-        // 推广store uuid权限
-        if ($bdmin_user_id = Yii::$service->helper->getGuestUrlParamRelateBdminUserId()) {
-            foreach ($cartInfo['products'] as $cart_product_one) {
-                if ( $bdmin_user_id != $cart_product_one['bdmin_user_id']) {
-                    Yii::$service->helper->errors->add('you do not have role to generate order product sku: {product_sku}', ['product_sku' => $cart_product_one['sku']]);
-                    return false;
-                }
-            }
-        }
-        // 是否有仓库权限：登陆用户没有权限的仓库，无法下单
-        if (Yii::$service->helper->isLoginCustomerOnlySeeSelectedWarehouseProduct()) {
-            $identity = Yii::$app->user->identity; 
-            $warehouses = $identity['warehouses']; 
-            $warehouseArr = explode(',', $warehouses);
-            foreach ($cartInfo['products'] as $cart_product_one) {
-                if (empty($warehouseArr) || !in_array($cart_product_one['warehouse'], $warehouseArr)) {
-                    Yii::$service->helper->errors->add('you do not have warehouse role to generate order this product sku: {product_sku}', ['product_sku' => $cart_product_one['sku']]);
-                    
-                    return false;
-                }
+        foreach($cartInfo['cart_info'] as $bdmin_user_id => $bdmin_cart_info) {
+            //var_dump($bdmin_cart_info);exit;
+            $deductStatus = Yii::$service->product->stock->deduct($bdmin_cart_info['products']);
+            if (!$deductStatus) {
+                // 库存不足则返回
+                return false;
             }
         }
         
-        
+        /*
         $beforeEventName = 'event_generate_order_before';
         $afterEventName  = 'event_generate_order_after';
         Yii::$service->event->trigger($beforeEventName, $cartInfo);
+        
         if ($token) {
             // 有token 代表前面已经生成了order，直接通过token查询出来即可。
             $myOrder = $this->getByPaymentToken($token);
@@ -753,70 +867,83 @@ class Order extends \fecshop\services\Order
         } else {
             $myOrder = new $this->_orderModelName();
         }
-        $myOrder['order_status'] = $this->payment_status_pending;
-        $myOrder['order_operate_status'] = $this->operate_status_normal;
-        $currentStore = Yii::$service->store->currentStore;
-        $currentStore || $currentStore       = $cartInfo['store'];
-        $myOrder['store']                          = $currentStore;
-        $myOrder['created_at']                  = time();
-        $myOrder['updated_at']                 = time();
-        $myOrder['items_count']                = $cartInfo['items_count'];
-        $myOrder['total_weight']                = $cartInfo['product_weight'];
-        $myOrder['order_currency_code']    = $currency_code;
-        $myOrder['order_to_base_rate']      = $currency_rate;
-        $myOrder['grand_total']                  = $cartInfo['grand_total'];
-        $myOrder['base_grand_total']         = $cartInfo['base_grand_total'];
-        $myOrder['subtotal']                      = $cartInfo['product_total'];
-        $myOrder['base_subtotal']              = $cartInfo['base_product_total'];
-        $myOrder['subtotal_with_discount'] = $cartInfo['coupon_cost'];
-        $myOrder['base_subtotal_with_discount'] = $cartInfo['base_coupon_cost'];
-        $myOrder['shipping_total']      = $cartInfo['shipping_cost'];
-        $myOrder['base_shipping_total'] = $cartInfo['base_shipping_cost'];
-        $myOrder['checkout_method']     = $this->getCheckoutType();
-        !$order_remark || $myOrder['order_remark'] = \yii\helpers\Html::encode($order_remark);
-        if ($address['customer_id']) {
-            $is_guest = 2;
-        } else {
-            $is_guest = 1;
-        }
-        if (!Yii::$app->user->isGuest) {
-            $identity = Yii::$app->user->identity;
-            $customer_id = $identity->id;
-            $myOrder['bdmin_user_id'] = $identity->bdmin_user_id;
-        } else {
-            $customer_id = '';
-        }
+        */
         
-        $myOrder['customer_id']             = $customer_id;
-        $myOrder['customer_email']          = $address['email'];
-        $myOrder['customer_firstname']      = $address['first_name'];
-        $myOrder['customer_lastname']       = $address['last_name'];
-        $myOrder['customer_is_guest']       = $is_guest;
-        $myOrder['customer_telephone']      = $address['telephone'];
-        $myOrder['customer_address_country']= $address['country'];
-        $myOrder['customer_address_state']  = $address['state'];
-        $myOrder['customer_address_city']   = $address['city'];
-        $myOrder['customer_address_zip']    = $address['zip'];
-        $myOrder['customer_address_street1']= $address['street1'];
-        $myOrder['customer_address_street2']= $address['street2'];
-        $myOrder['coupon_code']             = $cartInfo['coupon_code'];
-        $myOrder['payment_method']          = $payment_method;
-        $myOrder['shipping_method']         = $shipping_method;
-        // 进行model验证。
-        if (!$myOrder->validate()) {
-            $errors = $myOrder->errors;
-            Yii::$service->helper->errors->addByModelErrors($errors);
-
-            return false;
-        }
+        $payment_no = $this->generatePaymentNo();
         
-        // 保存订单
-        $saveOrderStatus = $myOrder->save();
-        if (!$saveOrderStatus) {
-            return false;
-        }
-        $order_id = $myOrder['order_id'];
-        if (!$increment_id) {
+        foreach($cartInfo['cart_info'] as $bdmin_user_id => $bdmin_cart_info) {
+            
+            $shipping_method = isset($shipping_methods[$bdmin_user_id]) ? $shipping_methods[$bdmin_user_id] : '';
+            $myOrder = new $this->_orderModelName();
+            $myOrder['payment_no'] = $payment_no;
+            $myOrder['bdmin_user_id'] = $bdmin_user_id;
+            $myOrder['order_status'] = $this->payment_status_pending;
+            $myOrder['order_operate_status'] = $this->operate_status_normal;
+            $currentStore = Yii::$service->store->currentStore;
+            $currentStore || $currentStore       = $bdmin_cart_info['store'];
+            $myOrder['store']                          = $currentStore;
+            $myOrder['created_at']                  = time();
+            $myOrder['updated_at']                 = time();
+            $myOrder['items_count']                = $bdmin_cart_info['product_qty_total'];
+            $myOrder['total_weight']                = $bdmin_cart_info['product_weight'];
+            $myOrder['order_currency_code']    = $currency_code;
+            $myOrder['order_to_base_rate']      = $currency_rate;
+            $myOrder['grand_total']                  = $bdmin_cart_info['grand_total'];
+            $myOrder['base_grand_total']         = $bdmin_cart_info['base_grand_total'];
+            $myOrder['subtotal']                      = $bdmin_cart_info['product_total'];
+            $myOrder['base_subtotal']              = $bdmin_cart_info['base_product_total'];
+            $myOrder['subtotal_with_discount'] = $bdmin_cart_info['coupon_cost'];
+            $myOrder['base_subtotal_with_discount'] = $bdmin_cart_info['base_coupon_cost'];
+            $myOrder['shipping_total']             = $bdmin_cart_info['shipping_cost'];
+            $myOrder['base_shipping_total']     = $bdmin_cart_info['base_shipping_cost'];
+            $myOrder['checkout_method']        = $this->getCheckoutType();
+            /*
+            !$order_remark || $myOrder['order_remark'] = \yii\helpers\Html::encode($order_remark);
+            if ($address['customer_id']) {
+                $is_guest = 2;
+            } else {
+                $is_guest = 1;
+            }
+            */
+            if (!Yii::$app->user->isGuest) {
+                $identity = Yii::$app->user->identity;
+                $customer_id = $identity->id;
+            } else {
+                $customer_id = '';
+            }
+            
+            $myOrder['customer_id']             = $customer_id;
+            $myOrder['customer_email']          = $address['email'];
+            $myOrder['customer_firstname']      = $address['first_name'];
+            $myOrder['customer_lastname']       = $address['last_name'];
+            $myOrder['customer_is_guest']       = 1;
+            $myOrder['customer_telephone']      = $address['telephone'];
+            $myOrder['customer_address_country']= $address['country'];
+            $myOrder['customer_address_state']  = $address['state'];
+            $myOrder['customer_address_city']   = $address['city'];
+            $myOrder['customer_address_zip']    = $address['zip'];
+            $myOrder['customer_address_street1']= $address['street1'];
+            $myOrder['customer_address_street2']= $address['street2'];
+            $myOrder['coupon_code']             = $bdmin_cart_info['coupon_code'];
+            $myOrder['payment_method']          = $payment_method;
+            $myOrder['shipping_method']         = $shipping_method;
+            // 进行model验证。
+            
+            if (!$myOrder->validate()) {
+                
+                $errors = $myOrder->errors;
+                Yii::$service->helper->errors->addByModelErrors($errors);
+                
+                return false;
+            }
+            // 保存订单
+            $saveOrderStatus = $myOrder->save();
+            
+            if (!$saveOrderStatus) {
+                return false;
+            }
+            
+            $order_id = $myOrder['order_id'];
             $increment_id = $this->generateIncrementIdByOrderId($order_id);
             $myOrder['increment_id'] = $increment_id;
             // 保存订单
@@ -824,34 +951,53 @@ class Order extends \fecshop\services\Order
             if (!$saveOrderStatus) {
                 return false;
             }
-        }
-        Yii::$service->event->trigger($afterEventName, $myOrder);
-        if ($myOrder[$this->getPrimaryKey()]) {
+            
+            Yii::$service->event->trigger($afterEventName, $myOrder);
+            if (!$myOrder[$this->getPrimaryKey()]) {
+                Yii::$service->helper->errors->add('generate order fail');
+
+                return false;
+            }
             
             // 保存订单产品
-            $saveItemStatus = Yii::$service->order->item->saveOrderItems($cartInfo['products'], $order_id, $cartInfo['store']);
+            $saveItemStatus = Yii::$service->order->item->saveOrderItems2($bdmin_cart_info['products'], $order_id, $bdmin_cart_info['store'], $bdmin_user_id);
+            
             if (!$saveItemStatus) {
                 return false;
             }
             // 订单生成成功，通过api传递数据给trace系统
-            $this->sendTracePaymentPendingOrder($myOrder, $cartInfo['products']);
-            // 如果是登录用户，那么，在生成订单后，需要清空购物车中的产品和coupon。
-            if (!Yii::$app->user->isGuest && $clearCart) {
-                Yii::$service->cart->clearCartProductAndCoupon();
-            }
+            $this->sendTracePaymentPendingOrder($myOrder, $bdmin_cart_info['products']);
+            
             
             // 执行成功，则在session中设置increment_id
-            $this->setSessionIncrementId($increment_id);
+            //$this->setSessionIncrementId($increment_id);
             // add log
             
             $logType = Yii::$service->order->processLog->order_create;
             Yii::$service->order->processLog->consoleAdd($myOrder, $logType);
-            return true;
-        } else {
-            Yii::$service->helper->errors->add('generate order fail');
-
-            return false;
         }
+        
+        $this->setSessionTradeNo($payment_no);
+        // 如果是登录用户，那么，在生成订单后，需要清空购物车中的产品和coupon。
+        if (!Yii::$app->user->isGuest && $clearCart) {
+            //Yii::$service->cart->clearCartProductAndCoupon();
+        }
+        return true;
+    }
+    // 生成支付编号
+    function generatePaymentNo()
+    {
+        $uuid1 = Uuid::uuid1();
+        $uuidStr = $uuid1->toString();
+        return 'pay_no_' . $uuid1;
+    }
+    // 判断session存储的是order increment id 还是 order payment no
+    function paymentCodeIsPaymentNo($pay_no)
+    {
+        if (substr($pay_no, 0, 7) == 'pay_no_' ) {
+            return true;
+        }
+        return false;
     }
     
     public function updatePendingOrderTotal($orderModel, $product_total, $base_product_total){
@@ -1051,21 +1197,60 @@ class Order extends \fecshop\services\Order
         }
     }
 
-    /**
+    /** 废弃
      * @param $increment_id | String ,order订单号
      * 将生成的订单号写入session
      */
+    /*
     protected function actionSetSessionIncrementId($increment_id)
     {
         Yii::$service->session->set(self::CURRENT_ORDER_INCREAMENT_ID, $increment_id);
     }
+    */
 
-    /**
+    /** 废弃
      * 从session中取出来订单号.
      */
+    /*
     protected function actionGetSessionIncrementId()
     {
         return Yii::$service->session->get(self::CURRENT_ORDER_INCREAMENT_ID);
+    }
+    */
+    
+    /**
+     * 从session中销毁订单号.
+     */
+    /*
+    protected function actionRemoveSessionIncrementId()
+    {
+        return Yii::$service->session->remove(self::CURRENT_ORDER_INCREAMENT_ID);
+    }
+    */
+    
+    /**
+     * @param $increment_id | String ,order订单号
+     *  订单交易号，里面可以是订单号，也可能是支付号
+     */
+    protected function actionSetSessionTradeNo($trade_no)
+    {
+        Yii::$service->session->set(self::CURRENT_ORDER_TRADE_NO, $trade_no);
+    }
+
+    /**
+     * 从session中取出来订单交易号.
+     */
+    protected function actionGetSessionTradeNo()
+    {
+        return Yii::$service->session->get(self::CURRENT_ORDER_TRADE_NO);
+    }
+    
+     /**
+     * 从session中销毁订单号.
+     */
+    protected function actionRemoveSessionTradeNo()
+    {
+        return Yii::$service->session->remove(self::CURRENT_ORDER_TRADE_NO);
     }
 
     /**
@@ -1081,14 +1266,24 @@ class Order extends \fecshop\services\Order
             $myOrder->save();
         }
     }
-
-    /**
-     * 从session中销毁订单号.
-     */
-    protected function actionRemoveSessionIncrementId()
+    
+    // 通过trade_no ，更新订单 token
+    public function updateTokenByTradeNo($trade_no,$token)
     {
-        return Yii::$service->session->remove(self::CURRENT_ORDER_INCREAMENT_ID);
+        $orderModels = $this->getOrderModelsByTradeNo($trade_no);
+        if (!is_array($orderModels) || empty($orderModels)) {
+            return false;
+        }
+        foreach ($orderModels as $orderModel) {
+            $orderModel->payment_token = $token;
+            $orderModel->save();
+        }
+        
+        return true;
     }
+    
+
+    
 
     /**
      * @param int $order_id the order id

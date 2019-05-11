@@ -49,10 +49,16 @@ return [
                                 'label' => 'Base Info Config',
                                 'url_key' => '/cms/baseinfo/manager',
                             ],
+                            'shipping_theme_info' => [
+                                'label' => 'Shipping Theme Config',
+                                'url_key' => '/cms/shipping/manager',
+                            ],
+                            /*
                             'home_page' => [
                                 'label' => 'Home Page Config',
                                 'url_key' => '/cms/homepage/manager',
                             ],
+                            */
                             
                         ],
                     ],
@@ -153,6 +159,7 @@ return [
                             
                         ],
                     ],
+                    /*
                     'customer' => [
                         'label' => 'Manager User',
                         'child' => [
@@ -166,7 +173,7 @@ return [
                             ],
                         ],
                     ],
-                    
+                    */
                     'dashboard' => [
                         'label' => 'Dashboard',
                         'child' => [

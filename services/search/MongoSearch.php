@@ -234,30 +234,7 @@ class MongoSearch extends \fecshop\services\search\MongoSearch
         $collection = [];
         if ($productM && $enableStatus == $productM['status']) {
             $collection['coll'][] = $productM;
-            $collection['count'] = 1;    
-            // 供应商权限
-            if (Yii::$service->helper->isLoginCustomerOnlySeeSupplierProduct() ) {
-                $identity = Yii::$app->user->identity;
-                $bdmin_user_id = $identity['bdmin_user_id'];
-                if ($bdmin_user_id != $productM['bdmin_user_id']) {
-                    $collection = [];
-                }
-            } 
-            // 仓库权限
-            if (Yii::$service->helper->isLoginCustomerOnlySeeSelectedWarehouseProduct()) {
-                $identity = Yii::$app->user->identity; 
-                $warehouses = $identity['warehouses']; 
-                $warehouseArr = explode(',', $warehouses);
-                if (empty($warehouseArr) || !in_array($productM['warehouse'], $warehouseArr)) {
-                    $collection = [];
-                }
-            }
-            // 推广store uuid权限
-            if ($bdmin_user_id = Yii::$service->helper->getGuestUrlParamRelateBdminUserId() ) {
-                if ($bdmin_user_id != $productM['bdmin_user_id']) {
-                    $collection = [];
-                }
-            } 
+            $collection['count'] = 1;
         } 
         if (empty($collection)){
             $filter = [
@@ -297,30 +274,10 @@ class MongoSearch extends \fecshop\services\search\MongoSearch
         if (!isset($where['status'])) {
             $where['status'] = Yii::$service->product->getEnableStatus();
         }
-        // 是否在搜索结果中只有供应商对应的产品？
-        if (Yii::$service->helper->isLoginCustomerOnlySeeSupplierProduct()) {
-            $identity = Yii::$app->user->identity;
-            $where['bdmin_user_id'] = $identity['bdmin_user_id'];
-        }
-        // 推广store uuid权限
-        if ($bdmin_user_id = Yii::$service->helper->getGuestUrlParamRelateBdminUserId() ) {
-            $where['bdmin_user_id'] = $bdmin_user_id;
-        } 
+       
         $searchWhere = ['and'];
         foreach ($where as $k=>$v) {
             $searchWhere[] = [$k=>$v];
-        }
-        // 用户仓库过滤，如果选项开启，则执行如下操作
-        if (Yii::$service->helper->isLoginCustomerOnlySeeSelectedWarehouseProduct()) {
-            $identity = Yii::$app->user->identity;
-            $warehouses = $identity['warehouses']; 
-            $warehouseArr = explode(',', $warehouses);
-            if (is_array($warehouseArr) && !empty($warehouseArr)) {
-                
-                $searchWhere[] = ['in', 'warehouse', $warehouseArr];
-            } else {
-                return [];  // 如果用户没有设置warehouse，则无法搜索产品。
-            }
         }
         
         $product_search_max_count = $filter['product_search_max_count'] ? $filter['product_search_max_count'] : 1000;

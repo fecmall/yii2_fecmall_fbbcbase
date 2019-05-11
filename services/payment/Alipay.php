@@ -53,6 +53,8 @@ class Alipay extends \fecshop\services\payment\Alipay
     protected $_productCode;
 
     protected $_order;
+    
+    protected $_order_model_arr;
 
     //交易创建，等待买家付款
     const WAIT_BUYER_PAY = 'WAIT_BUYER_PAY';
@@ -144,20 +146,27 @@ class Alipay extends \fecshop\services\payment\Alipay
      */
     protected function validateReviewOrder($out_trade_no, $total_amount, $seller_id, $auth_app_id)
     {
-        if (!$this->_order) {
-            $this->_order = Yii::$service->order->getByIncrementId($out_trade_no);
-            Yii::$service->payment->setPaymentMethod($this->_order['payment_method']);
-        }
-        if (!$this->_order) {
-            Yii::$service->helper->errors->add('order increment id:{out_trade_no} is not exist.', ['out_trade_no' => $out_trade_no]);
+        $orders = Yii::$service->order->getOrderModelsByTradeNo($out_trade_no);
+        $this->_order_model_arr = $orders;
+        if (!is_array($orders) || empty($orders)) {
+            Yii::$service->helper->errors->add('order: {out_trade_no} is not exist.', ['out_trade_no' => $out_trade_no]);
             
             return false;
         }
-        //$base_grand_total = $this->_order['base_grand_total'];
-        //$order_total_amount = Yii::$service->page->currency->getCurrencyPrice($base_grand_total,'CNY');
-        $order_total_amount = $this->_order['grand_total'];
-        if ($order_total_amount != $total_amount) {
-            Yii::$service->helper->errors->add('order increment id:{out_trade_no} , total_amount({total_amount}) is not equal to order_total_amount({order_total_amount})', ['out_trade_no'=>$out_trade_no , 'total_amount'=>$total_amount , 'order_total_amount'=>$order_total_amount ]);
+        $order_payment_method = '';
+        $grandTotal = 0;
+        if (is_array($orders) || !empty($orders)) {
+            foreach ($orders as $order) {
+                $grandTotal += $order['grand_total'];
+                $order_payment_method = $order['payment_method'];
+            }
+        }
+        // 初始化当前的支付方式
+        Yii::$service->payment->setPaymentMethod($order_payment_method);
+        
+        // 金额的核对
+        if ($grandTotal  != $total_amount) {
+            Yii::$service->helper->errors->add('order: {out_trade_no} , total_amount({total_amount}) is not equal to order_total_amount({order_total_amount})', ['out_trade_no'=>$out_trade_no , 'total_amount'=>$total_amount , 'order_total_amount'=>$grandTotal ]);
             
             return false;
         }
@@ -273,58 +282,38 @@ class Alipay extends \fecshop\services\payment\Alipay
      * @param $sendEmail | boolean 是否发送邮件
      * 订单支付成功后，需要更改订单支付状态等一系列的处理。
      */
-    protected function paymentSuccess($increment_id, $trade_no, $sendEmail = true)
+    protected function paymentSuccess($out_trade_no, $trade_no, $sendEmail = true)
     {
         Yii::$service->store->currentLangCode = 'zh';
-        if (!$this->_order) {
-            $this->_order = Yii::$service->order->getByIncrementId($increment_id);
-            Yii::$service->payment->setPaymentMethod($this->_order['payment_method']);
-        }
-        // 【优化后的代码 ##】
-        $orderstatus = Yii::$service->order->payment_status_confirmed;
-        $updateArr['order_status']  = $orderstatus;
-        $updateArr['txn_id']        = $trade_no; // 支付宝的交易号
-        $updateColumn = $this->_order->updateAll(
-            $updateArr,
-            [
-                'and',
-                ['order_id' => $this->_order['order_id']],
-                ['in', 'order_status', $this->_allowChangOrderStatus],
-                ['order_operate_status' => Yii::$service->order->operate_status_normal],
-            ]
-        );
-        if (!empty($updateColumn)) {
-            // 发送邮件，以及其他的一些操作（订单支付成功后的操作）
-            Yii::$service->order->orderPaymentCompleteEvent($this->_order['increment_id']);
-            // 订单操作日志
-            $logType = Yii::$service->order->processLog->order_payment_confirm;
-            Yii::$service->order->processLog->consoleAdd($this->_order, $logType);
-        }
-        // 【优化后的代码 ##】
         
-        /* 注释掉的原来代码，上面进行了优化，保证更改只有一次，这样发邮件也就只有一次了
-        // 如果订单状态已经是processing，那么，不需要更改订单状态了。
-        if ($this->_order['order_status'] == Yii::$service->order->payment_status_confirmed){
-
-            return true;
+        // 得到订单
+        if (!$this->_order_model_arr) {
+            $this->_order_model_arr = Yii::$service->order->getOrderModelsByTradeNo($out_trade_no);
         }
-        $order = $this->_order;
-        if (isset($order['increment_id']) && $order['increment_id']) {
-            // 如果支付成功，则更改订单状态为支付成功
-            $order->order_status = Yii::$service->order->payment_status_confirmed;
-            $order->txn_id = $trade_no; // 支付宝的交易号
-            // 更新订单信息
-            $order->save();
-            Yii::$service->order->orderPaymentCompleteEvent($order['increment_id']);
-            // 上面的函数已经执行下面的代码，因此注释掉。
-            // 得到当前的订单信息
-            //$orderInfo = Yii::$service->order->getOrderInfoByIncrementId($order['increment_id']);
-            // 发送新订单邮件
-            //Yii::$service->email->order->sendCreateEmail($orderInfo);
-
-            return true;
+        
+        foreach ($this->_order_model_arr as $order_model) {
+            // 【优化后的代码 ##】
+            $orderstatus = Yii::$service->order->payment_status_confirmed;
+            $updateArr['order_status']  = $orderstatus;
+            $updateArr['txn_id']        = $trade_no; // 支付宝的交易号
+            $updateColumn = $order_model->updateAll(
+                $updateArr,
+                [
+                    'and',
+                    ['order_id' => $order_model['order_id']],
+                    ['in', 'order_status', $this->_allowChangOrderStatus],
+                    ['order_operate_status' => Yii::$service->order->operate_status_normal],
+                ]
+            );
+            if (!empty($updateColumn)) {
+                // 发送邮件，以及其他的一些操作（订单支付成功后的操作）
+                Yii::$service->order->orderPaymentCompleteEvent($order_model['increment_id']);
+                // 订单操作日志
+                $logType = Yii::$service->order->processLog->order_payment_confirm;
+                Yii::$service->order->processLog->consoleAdd($order_model, $logType);
+            }
         }
-        */
+        
         return true;
     }
     
@@ -380,29 +369,38 @@ class Alipay extends \fecshop\services\payment\Alipay
      */
     protected function getStartBizContentAndSetPaymentMethod()
     {
-        $currentOrderInfo = Yii::$service->order->getCurrentOrderInfo();
-        if (isset($currentOrderInfo['products']) && is_array($currentOrderInfo['products'])) {
-            $subject_arr = [];
+        $currentOrderInfos = Yii::$service->order->getCurrentOrderInfos();
+        if (!is_array($currentOrderInfos) || empty($currentOrderInfos)) {
+            return null;
+        }
+        $out_trade_no = Yii::$service->order->getSessionTradeNo();
+        $total_amount = 0;
+        $subject = '';
+        $subject_arr = [];
+        foreach ($currentOrderInfos as $currentOrderInfo) {
+            if (!isset($currentOrderInfo['products']) || !is_array($currentOrderInfo['products'])) {
+                return null;
+            }
+            // subject
             foreach ($currentOrderInfo['products'] as $product) {
                 $subject_arr[] = $product['name'];
             }
-            if (!empty($subject_arr)) {
-                $subject = implode(',', $subject_arr);
-                $increment_id = $currentOrderInfo['increment_id'];
-                //$base_grand_total = $currentOrderInfo['base_grand_total'];
-                //$total_amount = Yii::$service->page->currency->getCurrencyPrice($base_grand_total,'CNY');
-                $total_amount = $currentOrderInfo['grand_total'];
-                Yii::$service->payment->setPaymentMethod($currentOrderInfo['payment_method']);
-                return json_encode([
-                    // param 参看：https://docs.open.alipay.com/common/105901
-                    'out_trade_no' => $increment_id,
-                    'product_code' => $this->_productCode,
-                    'total_amount' => $total_amount,
-                    'subject'      => $subject,
-                    //'body'         => '',
-                ]);
-            }
+            
+            // total_amount
+            $total_amount += $currentOrderInfo['grand_total'];
         }
+        if (!empty($subject_arr)) {
+            $subject = implode(',', $subject_arr);
+        }
+        
+        return json_encode([
+            // param 参看：https://docs.open.alipay.com/common/105901
+            'out_trade_no' => $out_trade_no,
+            'product_code' => $this->_productCode,
+            'total_amount' => $total_amount,
+            'subject'      => $subject,
+            //'body'         => '',
+        ]);
     }
     
     // 支付宝的 标示

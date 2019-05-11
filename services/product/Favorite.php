@@ -83,36 +83,7 @@ class Favorite extends \fecshop\services\product\Favorite
 
             return false;
         }
-        $identity = Yii::$app->user->identity;
-        $bdmin_user_id = $identity['bdmin_user_id'];
-        // 供应商权限
-        if (Yii::$service->helper->isLoginCustomerOnlySeeSupplierProduct()) {
-            if ($bdmin_user_id != $product['bdmin_user_id']) {
-                Yii::$service->helper->errors->add('you do not have role favorite this product');
-                
-                return false;
-            }
-        }
-        // 推广store uuid权限
-        if ($bdmin_user_id = Yii::$service->helper->getGuestUrlParamRelateBdminUserId()) {
-            if ($bdmin_user_id != $product['bdmin_user_id']) {
-                Yii::$service->helper->errors->add('you do not have role favorite this product');
-                
-                return false;
-            }
-        }
-        // 仓库权限
-        if (Yii::$service->helper->isLoginCustomerOnlySeeSelectedWarehouseProduct()) {
-            $warehouses = $identity['warehouses']; 
-            $warehouseArr = explode(',', $warehouses);
-            if (empty($warehouseArr) || !in_array($product['warehouse'], $warehouseArr)) {
-                Yii::$service->helper->errors->add('you do not have warehouse role favorite this product');
-                
-                return false;
-            }
-        }
         
-        //echo $product_id;exit;
         $favoritePrimaryKey = Yii::$service->product->favorite->getPrimaryKey();
         $one = $this->_favoriteModel->findOne([
             'product_id' => $product_id,
@@ -120,7 +91,7 @@ class Favorite extends \fecshop\services\product\Favorite
         ]);
         if (isset($one[$favoritePrimaryKey])) {
             $one->updated_at = time();
-            $one->bdmin_user_id = $bdmin_user_id;
+            //$one->bdmin_user_id = $bdmin_user_id;
             $one->store = Yii::$service->store->currentStore;
             $one->save();
 
@@ -129,7 +100,7 @@ class Favorite extends \fecshop\services\product\Favorite
         $one = new $this->_favoriteModelName();
         $one->product_id = $product_id;
         $one->user_id = $user_id;
-        $one->bdmin_user_id = $bdmin_user_id;
+        //$one->bdmin_user_id = $bdmin_user_id;
         $one->created_at = time();
         $one->updated_at = time();
         $one->store = Yii::$service->store->currentStore;

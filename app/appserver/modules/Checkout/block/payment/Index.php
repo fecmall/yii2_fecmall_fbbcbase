@@ -18,11 +18,12 @@ use Yii;
 class Index 
 {
     protected $_payment_method;
+    protected $bdmin_info = [];
     
     public function getLastData()
     {
-        $order_info = $this->getOrderInfo();
-        if (!$order_info) {
+        $getOrderInfos = $this->getOrderInfos();
+        if (empty($getOrderInfos) || !is_array($getOrderInfos)) {
             $data = [];
             $code = Yii::$service->helper->appserver->status_invalid_param;
             $responseData = Yii::$service->helper->appserver->getResponseData($code, $data);
@@ -33,7 +34,8 @@ class Index
         $data = [
             'payments' => $this->getPayment(),
             'current_payment_method' => $this->_payment_method,
-            'order_info' => $order_info,
+            'order_infos' => $getOrderInfos,
+            'bdmin_info'                 => $this->bdmin_info,  
         ];
         $code = Yii::$service->helper->appserver->status_success;
         $responseData = Yii::$service->helper->appserver->getResponseData($code, $data);
@@ -62,40 +64,54 @@ class Index
         return $paymentArr;
     }
     // 得到订单的信息。
-    public function getOrderInfo(){
+    public function getOrderInfos(){
         $order_increment_id = Yii::$app->request->get('order_increment_id');
-        if (!$order_increment_id) {
-            $order_increment_id = Yii::$service->order->getSessionIncrementId();
-        }
-        
-        if (!$order_increment_id) {
+        $orderArr = [];
+        if ($order_increment_id) {
+            $order = Yii::$service->order->getOrderInfoByIncrementId($order_increment_id);
+            $orderArr = [$order];
+        } else if ($pay_no = Yii::$service->order->getSessionTradeNo()){
+            $orderArr = Yii::$service->order->getOrdersInfoByPayNo($pay_no);
+        } else {
             return null;
-        }  
-        $order_info = [];
-        $order = Yii::$service->order->getOrderInfoByIncrementId($order_increment_id);
-        $order_info['product_total'] = $order['subtotal'];
-        $order_info['shipping_cost'] =  $order['shipping_total'];
-        $order_info['coupon_cost'] = $order['subtotal_with_discount'];
-        $order_info['grand_total'] = $order['grand_total'];
-        $products = $order['products'];
-        $product_arr = [];
-        if (is_array($products) && !empty($products)) {
-            foreach ($products as $product) {
-                $custom_option_info_arr = $this->getProductOptions($product, $product['custom_option_sku']);
-                $product_arr[] = [
-                    'imgUrl' => Yii::$service->product->image->getResize($product['image'], [100, 100], false),
-                    'name' => $product['name'],
-                    'custom_option_info' => $custom_option_info_arr,
-                    'qty' => $product['qty'],
-                    'product_row_price' => $product['row_total'],
-                    'product_id' => (string)$product['product_id'],
-                ];
+        }
+        $order_infos = [];
+        $bdminArr = [];
+        if (is_array($orderArr) && !empty($orderArr)) {
+            foreach ($orderArr as $order) {
+                $order_info = [];
+                $order_info['product_total'] = $order['subtotal'];
+                $order_info['shipping_cost'] =  $order['shipping_total'];
+                $order_info['coupon_cost'] = $order['subtotal_with_discount'];
+                $order_info['grand_total'] = $order['grand_total'];
+                $order_info['bdmin_user_id'] = $order['bdmin_user_id'];
+                $bdminArr[] = $order['bdmin_user_id'];
+                $products = $order['products'];
+                $product_arr = [];
+                if (is_array($products) && !empty($products)) {
+                    foreach ($products as $product) {
+                        $custom_option_info_arr = $this->getProductOptions($product, $product['custom_option_sku']);
+                        $product_arr[] = [
+                            'imgUrl' => Yii::$service->product->image->getResize($product['image'], [100, 100], false),
+                            'name' => $product['name'],
+                            'custom_option_info' => $custom_option_info_arr,
+                            'qty' => $product['qty'],
+                            'product_row_price' => $product['row_total'],
+                            'product_id' => (string)$product['product_id'],
+                        ];
+                    }
+                }
+                $order_info['products'] = $product_arr;
+                $order_info['currency_symbol'] = $order['currency_symbol'];
+                $order_info['increment_id'] = $order['increment_id'];
+                $order_infos[] = $order_info;
             }
         }
-        $order_info['products'] = $product_arr;
-        $order_info['currency_symbol'] = $order['currency_symbol'];
-        $order_info['increment_id'] = $order['increment_id'];
-        return $order_info;
+        if (!empty($bdminArr)) {
+            $this->bdmin_info = Yii::$service->bdminUser->getIdAndNameArrByIds($bdminArr);
+        }
+        
+        return $order_infos;
     }
     
     

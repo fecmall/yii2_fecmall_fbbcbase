@@ -28,8 +28,6 @@ class Manager extends AppbdminbaseBlockEdit implements AppbdminbaseBlockEditInte
     public $_type;
     protected $_attrArr = [
         'phone', 
-        'warehouse',
-        'default_warehouse'
     ];
     
     public function init()
@@ -98,25 +96,6 @@ class Manager extends AppbdminbaseBlockEdit implements AppbdminbaseBlockEditInte
                 ],
                 'require' => 0,
             ],
-            
-            [
-                'label'  => Yii::$service->page->translate->__('warehouse config'),
-                'name' => 'warehouse',
-                'display' => [
-                    'type' => 'inputString',
-                ],
-                'require' => 0,
-            ],
-            [
-                'label'  => Yii::$service->page->translate->__('default warehouse config'),
-                'name' => 'default_warehouse',
-                'display' => [
-                    'type' => 'inputString',
-                ],
-                'require' => 0,
-            ],
-            
-            
             
         ];
     }

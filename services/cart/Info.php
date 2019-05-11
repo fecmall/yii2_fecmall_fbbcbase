@@ -58,36 +58,6 @@ class Info extends \fecshop\services\cart\Info
             return false;
         }
         
-        // 供应商权限
-        if (Yii::$service->helper->isLoginCustomerOnlySeeSupplierProduct()) {
-            $identity = Yii::$app->user->identity;
-            $bdmin_user_id = $identity['bdmin_user_id'];
-            if ($bdmin_user_id != $product['bdmin_user_id']) {
-                Yii::$service->helper->errors->add('you do not have role to add this product to cart');
-
-                return false;
-            }
-        }
-        // 仓库权限
-        if (Yii::$service->helper->isLoginCustomerOnlySeeSelectedWarehouseProduct()) {
-            $identity = Yii::$app->user->identity; 
-            $warehouses = $identity['warehouses']; 
-            $warehouseArr = explode(',', $warehouses);
-            if (empty($warehouseArr) || !in_array($product['warehouse'], $warehouseArr)) {
-                Yii::$service->helper->errors->add('you do not have warehouse role to add this product to cart');
-                
-                return false;
-            }
-        }
-        // 推广store uuid权限
-        if ($bdmin_user_id =Yii::$service->helper->getGuestUrlParamRelateBdminUserId()) {
-            if ($bdmin_user_id != $product['bdmin_user_id']) {
-                Yii::$service->helper->errors->add('you do not have role to add this product to cart');
-
-                return false;
-            }
-        }
-        
         // 加入购物车的产品个数超出 购物车中产品的最大个数。
         if ($qty > $this->maxCountAddToCart) {
             Yii::$service->helper->errors->add('The number of products added to the shopping cart can not exceed {max_count_add_to_cart}', ['max_count_add_to_cart' => $this->maxCountAddToCart]);

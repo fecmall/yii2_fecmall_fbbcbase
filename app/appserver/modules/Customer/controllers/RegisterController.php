@@ -123,9 +123,7 @@ class RegisterController extends \fecshop\app\appserver\modules\Customer\control
         $param['firstname']     = $firstname;
         $param['lastname']      = $lastname;
         $param['is_subscribed'] = $is_subscribed;
-        if ($bdmin_user_id = Yii::$service->helper->getGuestUrlParamRelateBdminUserId()) {
-            $param['bdmin_user_id'] = $bdmin_user_id;
-        } 
+         
         if (!empty($param) && is_array($param)) {
             $param = \Yii::$service->helper->htmlEncode($param);
             $registerStatus = $this->register($param);
@@ -137,22 +135,6 @@ class RegisterController extends \fecshop\app\appserver\modules\Customer\control
                     $accessToken = Yii::$service->customer->loginAndGetAccessToken($phone,$password);
                     if($accessToken){
                         $redirect = '/customer/account/index';
-                    }
-                    // 查看是否需要验证bdmin_user_id 是否为空
-                    if (Yii::$service->helper->isCustomerLoginCheckBdminUserId()) {
-                        $identity = Yii::$app->user->identity;
-                        $bdmin_user_id = $identity['bdmin_user_id'];
-                        if (empty($bdmin_user_id)) {
-                            Yii::$service->customer->logoutByAccessToken();
-                            $code = Yii::$service->helper->appserver->account_login_bdmin_user_id_is_empty;
-                            $data = [
-                                'content' => 'bdmin user id is empty',
-                                //'redirect' => $redirect,
-                            ];
-                            $responseData = Yii::$service->helper->appserver->getResponseData($code, $data);
-                            
-                            return $responseData;
-                        }
                     }
                 }
                 

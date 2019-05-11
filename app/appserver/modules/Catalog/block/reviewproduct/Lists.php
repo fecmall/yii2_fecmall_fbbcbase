@@ -92,41 +92,6 @@ class Lists extends \fecshop\app\appserver\modules\Catalog\block\reviewproduct\L
             
             return $responseData;
         }
-        // 供应商权限
-        if (Yii::$service->helper->isLoginCustomerOnlySeeSupplierProduct()) {
-            $identity = Yii::$app->user->identity;
-            $bdmin_user_id = $identity['bdmin_user_id'];
-            if ($bdmin_user_id != $product['bdmin_user_id']) {
-                $code = Yii::$service->helper->appserver->product_not_active;
-                $data = [];
-                $responseData = Yii::$service->helper->appserver->getResponseData($code, $data);
-                
-                return $responseData;
-            }
-        }
-        // 推广store uuid权限
-        if ($bdmin_user_id = Yii::$service->helper->getGuestUrlParamRelateBdminUserId()) {
-            if ($bdmin_user_id != $product['bdmin_user_id']) {
-                $code = Yii::$service->helper->appserver->product_not_active;
-                $data = [];
-                $responseData = Yii::$service->helper->appserver->getResponseData($code, $data);
-                
-                return $responseData;
-            }
-        }
-        // 仓库权限
-        if (Yii::$service->helper->isLoginCustomerOnlySeeSelectedWarehouseProduct()) {
-            $identity = Yii::$app->user->identity; 
-            $warehouses = $identity['warehouses']; 
-            $warehouseArr = explode(',', $warehouses);
-            if (empty($warehouseArr) || !in_array($product['warehouse'], $warehouseArr)) {
-                $code = Yii::$service->helper->appserver->product_not_active;
-                $data = [];
-                $responseData = Yii::$service->helper->appserver->getResponseData($code, $data);
-                
-                return $responseData;
-            }
-        }
         
         $this->spu = $product['spu'];
         $price_info = $this->getProductPriceInfo($product);

@@ -30,7 +30,6 @@ class LoginController extends AppserverController
         $identity = Yii::$service->customer->loginByAccessToken(get_class($this));
         if($identity){
             // 用户已经登录
-            
             $code = Yii::$service->helper->appserver->account_is_logined;
             $data = [];
             $responseData = Yii::$service->helper->appserver->getResponseData($code, $data);
@@ -53,30 +52,12 @@ class LoginController extends AppserverController
         }
         $accessToken = Yii::$service->customer->loginAndGetAccessToken($phone,$password);
         if($accessToken){
-            // 查看是否需要验证bdmin_user_id 是否为空
-            if (Yii::$service->helper->isCustomerLoginCheckBdminUserId()) {
-                $identity = Yii::$app->user->identity;
-                $bdmin_user_id = $identity['bdmin_user_id'];
-                if (empty($bdmin_user_id)) {
-                    Yii::$service->customer->logoutByAccessToken();
-                    $code = Yii::$service->helper->appserver->account_login_bdmin_user_id_is_empty;
-                    $data = [
-                        'content' => 'bdmin user id is empty',
-                        //'redirect' => $redirect,
-                    ];
-                    $responseData = Yii::$service->helper->appserver->getResponseData($code, $data);
-                    
-                    return $responseData;
-                }
-            }
-                    
             $code = Yii::$service->helper->appserver->status_success;
             $data = [];
             $responseData = Yii::$service->helper->appserver->getResponseData($code, $data);
             
             return $responseData;
         }else{
-            
             $code = Yii::$service->helper->appserver->account_login_invalid_email_or_password;
             $data = [];
             $responseData = Yii::$service->helper->appserver->getResponseData($code, $data);

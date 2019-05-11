@@ -41,20 +41,10 @@ class ProductMongodb extends \fecshop\services\product\ProductMongodb
        
         //验证sku 是否重复的where
         $whereOr = [];
-        if ($one['warehouse']) {
-            $whereOr[] =   [
-                'sku' => $one['sku'],
-                'warehouse' => $one['warehouse'],
-            ];   
-        } else {
-            $whereOr[] =   [
-                'sku' => $one['sku'],
-            ];
-        }
         $whereOr[] =   [
             'sku' => $one['sku'],
-            ['<>', 'bdmin_user_id', $one['bdmin_user_id'],]
-        ]; 
+        ];
+        
         $whereOr[] =   [
             'spu' => $one['spu'],
             ['<>', 'bdmin_user_id', $one['bdmin_user_id'],]
@@ -66,7 +56,7 @@ class ProductMongodb extends \fecshop\services\product\ProductMongodb
             $model = $this->_productModel->findOne($primaryVal);
             if (!$model) {
                 Yii::$service->helper->errors->add('Product {primaryKey} is not exist', ['primaryKey'=>$this->getPrimaryKey()]);
-
+                
                 return false;
             }
             $product_one = $this->_productModel->find()->asArray()->where([
@@ -74,13 +64,11 @@ class ProductMongodb extends \fecshop\services\product\ProductMongodb
             ])->andWhere($where)->one();
             
             if ($product_one['sku']) {
-                if ($one['warehouse'] && $product_one['sku'] == $one['sku'] && $product_one['warehouse'] == $one['warehouse']) {
-                    Yii::$service->helper->errors->add('Product Sku:{sku} and warehouse:{warehouse} is exist, please use other sku and warehouse', [ 'sku' => $one['sku'], 'warehouse' => $one['warehouse'] ]);
-                } else if (!$one['warehouse'] && $product_one['sku'] == $one['sku']) {
-                    Yii::$service->helper->errors->add('Product Sku:{sku} is exist ，please use other sku', [ 'sku' => $one['sku'], 'warehouse' => $one['warehouse'] ]);
+                if ($product_one['sku'] == $one['sku']) {
+                    Yii::$service->helper->errors->add('Product Sku:{sku} is exist ，please use other sku', [ 'sku' => $one['sku'] ]);
                 }
                 if ($product_one['bdmin_user_id'] != $one['bdmin_user_id'] && $product_one['spu'] == $one['spu']) {
-                    Yii::$service->helper->errors->add('Product spu:{spu} is exist in other bdmin，please use other spu', [ 'spu' => $one['spu'], 'warehouse' => $one['warehouse'] ]);
+                    Yii::$service->helper->errors->add('Product spu:{spu} is exist in other bdmin，please use other spu', [ 'spu' => $one['spu'] ]);
                 } 
                 return false;
             }
@@ -91,17 +79,13 @@ class ProductMongodb extends \fecshop\services\product\ProductMongodb
             $primaryVal = new \MongoDB\BSON\ObjectId();
             $model->{$this->getPrimaryKey()} = $primaryVal;
             //验证sku 是否重复
-            $product_one = $this->_productModel->find()->asArray()->where([
-                'sku' => $one['sku'],
-            ])->andWhere($where)->one();
+            $product_one = $this->_productModel->find()->asArray()->where($where)->one();
             if ($product_one['sku']) {
-                if ($one['warehouse'] && $product_one['sku'] == $one['sku'] && $product_one['warehouse'] == $one['warehouse']) {
-                    Yii::$service->helper->errors->add('Product Sku:{sku} and warehouse:{warehouse} is exist, please use other sku and warehouse', [ 'sku' => $one['sku'], 'warehouse' => $one['warehouse'] ]);
-                } else if (!$one['warehouse'] && $product_one['sku'] == $one['sku']) {
-                    Yii::$service->helper->errors->add('Product Sku:{sku} is exist ，please use other sku', [ 'sku' => $one['sku'], 'warehouse' => $one['warehouse'] ]);
+                if ($product_one['sku'] == $one['sku']) {
+                    Yii::$service->helper->errors->add('Product Sku:{sku} is exist ，please use other sku', [ 'sku' => $one['sku'] ]);
                 }
                 if ($product_one['bdmin_user_id'] != $one['bdmin_user_id'] && $product_one['spu'] == $one['spu']) {
-                    Yii::$service->helper->errors->add('Product spu:{spu} is exist in other bdmin，please use other spu', [ 'spu' => $one['spu'], 'warehouse' => $one['warehouse'] ]);
+                    Yii::$service->helper->errors->add('Product spu:{spu} is exist in other bdmin，please use other spu', [ 'spu' => $one['spu'] ]);
                 } 
                 return false;
             }

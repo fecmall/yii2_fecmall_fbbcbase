@@ -263,9 +263,7 @@ class m190308_010213_fec_bbc_base extends Migration
             "
             ALTER TABLE  `sales_flat_order` ADD  `bdmin_audit_acceptd_at` INT( 11 ) NULL COMMENT  '供应商审核通过的时间' AFTER  `updated_at`
             ",
-            "
-            ALTER TABLE  `customer` ADD  `warehouses` VARCHAR( 255 ) NULL COMMENT  '仓库列表' 
-            ",
+            
             "
             ALTER TABLE  `customer` CHANGE  `bdmin_user_id`  `bdmin_user_id` INT( 11 ) NULL COMMENT  '该用户所属的供应商的id'
             ",
@@ -277,9 +275,7 @@ class m190308_010213_fec_bbc_base extends Migration
             ALTER TABLE  `bdmin_user` ADD  `uuid` VARCHAR( 100 ) NULL COMMENT  '供应商的唯一编码', ADD UNIQUE (`uuid`)
             ",
             
-            "
-            ALTER TABLE  `sales_flat_order_item` ADD  `warehouse` VARCHAR( 100 ) NULL COMMENT  '产品仓库'
-            ",
+           
             
             ];
     

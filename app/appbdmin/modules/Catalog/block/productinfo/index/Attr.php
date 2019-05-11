@@ -109,6 +109,9 @@ class Attr
 
     public function getBaseInfo()
     {
+        $bdmin_user_id = Yii::$app->user->identity->id;
+        $shippingThemes = Yii::$service->bdminUser->shipping->getThemesByBdminUserId($bdmin_user_id);
+        
         return [
             [
                 'label' => Yii::$service->page->translate->__('Product Name'),
@@ -137,6 +140,17 @@ class Attr
                 ],
                 'require' => 1,
             ],
+            /*
+             [
+                'label' => Yii::$service->page->translate->__('Shipping Theme'),
+                'name'  => 'shipping_theme',
+                'display' => [
+                    'type' => 'select',
+                    'data' => $shippingThemes,
+                ],
+                'require' => 1,
+            ],
+            */
             [
                 'label' => Yii::$service->page->translate->__('Long (CM)'),
                 'name'  => 'long',
@@ -225,6 +239,7 @@ class Attr
                 ],
                 'require' => 0,
             ],
+           
             [
                 'label' => Yii::$service->page->translate->__('Stock Qty'),
                 'name'  => 'qty',

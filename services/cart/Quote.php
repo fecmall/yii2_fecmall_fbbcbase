@@ -343,6 +343,94 @@ class Quote extends \fecshop\services\cart\Quote
         ];
     }
     */
+    
+    
+    /**
+     * @param $postShippingMethod | Array or string(empty)
+     * [
+     *        'bdmin_user_id'   => 'shipping_method'
+     * ]
+     */
+    public function getCartOrderInfo($postShippingMethod)
+    {
+        $cart_id = $this->getCartId();
+        if (!$cart_id) {
+            return false;
+        }
+        $cart = $this->getCart();
+        // 购物车中所有的产品个数
+        $items_all_count = $cart['items_all_count'];
+        // 购物车中active状态的产品个数
+        $items_count = $cart['items_count'];
+        if ($items_count <=0 && $items_all_count <= 0) {
+            return false;
+        }
+        //$coupon_code = $cart['coupon_code'];
+        $cart_product_info = Yii::$service->cart->quoteItem->getCartOrderProductInfo();
+        if (!is_array($cart_product_info) || empty($cart_product_info)) {
+            Yii::$service->helper->errors->add('cart product is empty');
+            
+            return false;
+        }
+        $all_count = 0;
+        $all_total = 0;
+        $all_base_total = 0;
+        foreach ($cart_product_info as $bdmin_user_id => $cart_one) {
+            $products = $cart_one['products'];
+            $product_total = $cart_one['product_total'];
+            $base_product_total = $cart_one['base_product_total'];
+            $product_weight = $cart_one['product_weight'];
+            $product_volume_weight = $cart_one['product_volume_weight'];
+            $product_volume = $cart_one['product_volume'];
+            $product_qty_total = $cart_one['product_qty_total'];
+            //
+            
+            // 运费
+            // 得到所有的shipping模板以及费用
+            $product_weight = max($product_weight, $product_volume_weight);
+            $selectedShipping = (is_array($postShippingMethod) && isset($postShippingMethod[$bdmin_user_id])) ? $postShippingMethod[$bdmin_user_id] : '';
+            $shippingCost = $this->getShippingCost2($bdmin_user_id, $product_weight, $selectedShipping);
+            //var_dump($shippingCost );
+            $currShippingCost = $shippingCost['currCost'];
+            $baseShippingCost = $shippingCost['baseCost'];
+            $shipping_method = $shippingCost['shipping_method'];
+            $shipping_method_label = $shippingCost['shipping_method_label'];
+            $shippingMethods = $shippingCost['shippings'];
+            // 优惠券优惠金额
+            $baseDiscountCost = 0;
+            $currDiscountCost = 0;
+            // 当前经销商的总额
+            $curr_grand_total = $product_total + $currShippingCost - $currDiscountCost;
+            $base_grand_total = $base_product_total + $baseShippingCost - $baseDiscountCost;
+            // 汇总
+           
+            $cart_product_info[$bdmin_user_id]['cart_id'] = $cart_id; 
+            
+            $cart_product_info[$bdmin_user_id]['store'] = $cart['store'];
+            $cart_product_info[$bdmin_user_id]['grand_total'] = $curr_grand_total;
+            $cart_product_info[$bdmin_user_id]['base_grand_total'] = $base_grand_total;
+            
+            $cart_product_info[$bdmin_user_id]['shipping_cost'] = $currShippingCost;
+            $cart_product_info[$bdmin_user_id]['base_shipping_cost'] = $baseShippingCost;
+            $cart_product_info[$bdmin_user_id]['shipping_methods'] = $shippingMethods;
+            $cart_product_info[$bdmin_user_id]['shipping_method'] = $shipping_method;
+            $cart_product_info[$bdmin_user_id]['shipping_method_label'] = $shipping_method_label;
+            
+            $cart_product_info[$bdmin_user_id]['coupon_cost'] = $currDiscountCost;
+            $cart_product_info[$bdmin_user_id]['base_coupon_cost'] = $baseDiscountCost;
+            
+            $all_count += $product_qty_total;
+            $all_total += $curr_grand_total;
+            $all_base_total += $base_grand_total;
+        }
+        
+        return [
+            'all_count'  => $all_count,
+            'all_total' => $all_total,
+            'all_base_total' => $all_base_total,
+            'cart_info' => $cart_product_info,
+        ];
+    }
 
     /**
      * @param $activeProduct | boolean , 是否只要active的产品
@@ -355,10 +443,10 @@ class Quote extends \fecshop\services\cart\Quote
      *              对于填写了参数，返回的是填写参数后的数据，这个一般是用户选择了了货运方式，国家等，然后
      *              实时的计算出来数据反馈给用户，但是，用户选择的数据并没有进入cart表
      */
-    public function getCartInfo($activeProduct = true, $shipping_method = '', $country = '', $region = '*')
+    public function getCartInfo2($activeProduct = true)   // $shipping_method = '', $country = '', $region = '*'
     {
         // 根据传递的参数的不同，购物车数据计算一次后，第二次调用，不会重新计算数据。
-        $cartInfoKey = $shipping_method.'-shipping-'.$country.'-country-'.$region.'-region';
+        $cartInfoKey = 'shipping';
         if (!isset($this->cartInfo[$cartInfoKey])) {
             $cart_id = $this->getCartId();
             if (!$cart_id) {
@@ -372,7 +460,7 @@ class Quote extends \fecshop\services\cart\Quote
             if ($items_count <=0 && $items_all_count <= 0) {
                 return false;
             }
-            $coupon_code = $cart['coupon_code'];
+            //$coupon_code = $cart['coupon_code'];
             $cart_product_info = Yii::$service->cart->quoteItem->getCartProductInfo($activeProduct);
             //var_dump($cart_product_info);
             if (is_array($cart_product_info)) {
@@ -390,15 +478,15 @@ class Quote extends \fecshop\services\cart\Quote
                 if (is_array($products) && !empty($products)) {
                     $currShippingCost = 0;
                     $baseShippingCost = 0;
-                    if ($shipping_method && $product_final_weight) {
-                        $shippingCost = $this->getShippingCost($shipping_method, $product_final_weight, $country, $region);
-                        $currShippingCost = $shippingCost['currCost'];
-                        $baseShippingCost = $shippingCost['baseCost'];
-                    }
-                    $couponCost = $this->getCouponCost($base_product_total, $coupon_code);
+                    //if ($shipping_method && $product_final_weight) {
+                    //    $shippingCost = $this->getShippingCost($shipping_method, $product_final_weight, $country, $region);
+                    //    $currShippingCost = $shippingCost['currCost'];
+                    //    $baseShippingCost = $shippingCost['baseCost'];
+                    //}
+                    //$couponCost = $this->getCouponCost($base_product_total, $coupon_code);
 
-                    $baseDiscountCost = $couponCost['baseCost'];
-                    $currDiscountCost = $couponCost['currCost'];
+                    $baseDiscountCost = 0;
+                    $currDiscountCost = 0;
 
                     $curr_grand_total = $product_total + $currShippingCost - $currDiscountCost;
                     $base_grand_total = $base_product_total + $baseShippingCost - $baseDiscountCost;
@@ -407,9 +495,9 @@ class Quote extends \fecshop\services\cart\Quote
                         'cart_id'           => $cart_id,
                         'store'             => $cart['store'],          // store nme
                         'items_count'       => $product_qty_total,      // 因为购物车使用了active，因此生成订单的产品个数 = 购物车中active的产品的总个数（也就是在购物车页面用户勾选的产品的总数），而不是字段 $cart['items_count']
-                        'coupon_code'       => $coupon_code,            // coupon卷码
-                        'shipping_method'   => $shipping_method,
-                        'payment_method'    => $cart['payment_method'],
+                        //'coupon_code'       => $coupon_code,            // coupon卷码
+                        //'shipping_method'   => $shipping_method,
+                        //'payment_method'    => $cart['payment_method'],
                         'grand_total'       => Yii::$service->helper->format->number_format($curr_grand_total),       // 当前货币总金额
                         'shipping_cost'     => Yii::$service->helper->format->number_format($currShippingCost),       // 当前货币，运费
                         'coupon_cost'       => Yii::$service->helper->format->number_format($currDiscountCost),       // 当前货币，优惠券优惠金额
@@ -454,19 +542,14 @@ class Quote extends \fecshop\services\cart\Quote
      *                               [
      *                               'currCost'   => 33.22, #当前货币的运费金额
      *                               'baseCost'	=> 26.44,  #基础货币的运费金额
+     *                               'shippings'  =[],
      *                               ];
      *                               得到快递运费金额。
      */
-    public function getShippingCost($shipping_method = '', $weight = '', $country = '', $region = '')
+    public function getShippingCost2($bdmin_user_id, $product_weight, $selectedShippingMethod)
     {
-        if (!$this->_shipping_cost) {
-            $available_method = Yii::$service->shipping->getAvailableShippingMethods($country, $region, $weight);
-            $shippingInfo = $available_method[$shipping_method];
-            $shippingCost = Yii::$service->shipping->getShippingCost($shipping_method, $shippingInfo, $weight, $country, $region);
-            $this->_shipping_cost = $shippingCost;
-        }
-
-        return $this->_shipping_cost;
+        $shippingInfo = Yii::$service->shipping->getShippingCost2($bdmin_user_id, $product_weight, $selectedShippingMethod);
+        return $shippingInfo;
     }
 
     /**

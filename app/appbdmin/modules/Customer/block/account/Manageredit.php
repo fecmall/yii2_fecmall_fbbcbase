@@ -34,31 +34,14 @@ class Manageredit extends AppbdminbaseBlockEdit implements AppbdminbaseBlockEdit
     public function getLastData()
     {
         $bdmin_user_id = Yii::$app->user->identity->id; 
-        Yii::$service->helper->setProductBdminUserId($bdmin_user_id); 
         return [
             'editBar'      => $this->getEditBar(),
             'textareas'   => $this->_textareas,
             'lang_attr'   => $this->_lang_attr,
             'saveUrl'     => $this->_saveUrl,
-            'warehouses' => $this->getWarehouseArr(),
-            'selectWarehouses' => $this->getSelectWarehouses(),
         ];
     }
     
-    public function getSelectWarehouses()
-    {
-        $warehouses = $this->_one->warehouses;
-        $warehouseArr = explode(',', $warehouses);
-        
-        return $warehouseArr;
-    }
-    
-    public function getWarehouseArr(){
-        $arr = Yii::$service->helper->getbdminWarehouseList();
-        
-        return $arr ? $arr : [];
-    }
-
     public function setService()
     {
         $this->_service = Yii::$service->customer;
@@ -85,10 +68,7 @@ class Manageredit extends AppbdminbaseBlockEdit implements AppbdminbaseBlockEdit
          * if attribute is date or date time , db storage format is int ,by frontend pass param is int ,
          * you must convert string datetime to time , use strtotime function.
          */
-        // 设置 bdmin_user_id 为 当前的user_id
-        if ($this->_param['warehouses']) {
-            $this->_param['warehouses'] = implode(',', $this->_param['warehouses']);
-        }
+       
         $identity = Yii::$app->user->identity;
         $this->_param['bdmin_user_id'] = $identity['id'];
         $this->_service->save($this->_param);

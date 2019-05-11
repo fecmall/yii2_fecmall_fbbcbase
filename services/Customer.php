@@ -45,13 +45,7 @@ class Customer extends \fecshop\services\Customer
         if ($model->validate()) {
             $model->created_at = time();
             $model->updated_at = time();
-            // 设置默认仓库，如果存在绑定的供应商，则添加仓库信息。
-            if ($param['bdmin_user_id']) {
-                $bdminDefaultWarehouseArr = Yii::$service->systemConfig->getBdminDefaultWarehouseArr($param['bdmin_user_id']);
-                if (!empty($bdminDefaultWarehouseArr)) {
-                    $model->warehouses = implode(',', $bdminDefaultWarehouseArr);
-                }
-            }
+            
             $saveStatus = $model->save();
             if (!$saveStatus) {
                 Yii::$service->helper->errors->add('identity is not right');
@@ -100,13 +94,7 @@ class Customer extends \fecshop\services\Customer
                     $model->setPassword($password);
                     unset($param['password']);
                 }
-                // 设置默认仓库，如果存在绑定的供应商，则添加仓库信息。
-                if (!$model['bdmin_user_id'] && $param['bdmin_user_id']) {
-                    $bdminDefaultWarehouseArr = Yii::$service->systemConfig->getBdminDefaultWarehouseArr($param['bdmin_user_id']);
-                    if (!empty($bdminDefaultWarehouseArr)) {
-                        $model->warehouses = implode(',', $bdminDefaultWarehouseArr);
-                    }
-                }
+                
                 $saveStatus = Yii::$service->helper->ar->save($model, $param);
                 if ($saveStatus) {
                     

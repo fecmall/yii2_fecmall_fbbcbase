@@ -48,7 +48,7 @@ class Manageredit extends AppbdminbaseBlockEdit implements AppbdminbaseBlockEdit
             $this->_one['qty'] = $qty ;
         }
         $bdmin_user_id = Yii::$app->user->identity->id;
-        Yii::$service->helper->setProductBdminUserId($bdmin_user_id); 
+        
         $this->_attr = new $this->_attrBlockName($this->_one);
         //$this->_param		= $request_param[$this->_editFormData];
     }
@@ -411,16 +411,14 @@ class Manageredit extends AppbdminbaseBlockEdit implements AppbdminbaseBlockEdit
         }
         $identity = Yii::$app->user->identity;
         $this->_param['bdmin_user_id'] = $identity->id;
-        $this->_service->save($this->_param, 'catalog/product/index');
-        
-        $errors = Yii::$service->helper->errors->get();
-        if (!$errors) {
+        if ($this->_service->save($this->_param, 'catalog/product/index')) {
             echo  json_encode([
                 'statusCode' => '200',
                 'message'    => Yii::$service->page->translate->__('Save Success'),
             ]);
             exit;
         } else {
+            $errors = Yii::$service->helper->errors->get();
             echo  json_encode([
                 'statusCode' => '300',
                 'message'    => $errors,

@@ -16,6 +16,9 @@ return [
             'userLogin' => [
                 'class' => 'fbbcbase\services\bdminUser\UserLogin',
             ],
+            'shipping' => [
+                'class' => 'fbbcbase\services\bdminUser\Shipping',
+            ],
         ],
     ],
 ];

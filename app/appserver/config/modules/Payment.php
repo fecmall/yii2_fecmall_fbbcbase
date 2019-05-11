@@ -9,7 +9,8 @@
 return [
     'payment' => [
         'controllerMap' => [
-            'checkmoney' => 'fbbcbase\app\appserver\modules\Payment\controllers\CheckmoneyController',              
+            'checkmoney' => 'fbbcbase\app\appserver\modules\Payment\controllers\CheckmoneyController',     
+            'success' => 'fbbcbase\app\appserver\modules\Payment\controllers\SuccessController',              
         ],
     ]
 ];

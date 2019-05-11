@@ -346,7 +346,9 @@ sh fullSearchSync.sh
 
 开启nginx mysql mongodb php，你就可以访问本地配置的fecshop了。
 
-后台的账户密码为： admin admin123（如果不对，就是123456）
+平台后台的账户密码为： admin admin123（如果不对，就是123456）
+
+经销商后台：fecshop   fecshop123
 
 
 ### vue端配置
@@ -369,6 +371,12 @@ http://vue.fecmall.com/#/
 
 
 
+
+### 备注
+
+1.需要把mongodb的产品数据重新导出来一份。
+
+2.mongodb 的配置部分的数据
 
 
 

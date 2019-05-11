@@ -48,7 +48,6 @@ class CustomerRegister extends Customer
             
             ['lastname', 'filter', 'filter' => 'trim'],
             ['lastname', 'string', 'length' => [1, 50]],
-            ['warehouses', 'filter', 'filter' => 'trim'],
             ['is_subscribed', 'validateIsSubscribed'],
             
             ['bdmin_user_id', 'filter', 'filter' => 'trim'],

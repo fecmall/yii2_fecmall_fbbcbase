@@ -60,7 +60,7 @@ class Placeorder extends \fecshop\app\appserver\modules\Checkout\block\onepage\P
             $innerTransaction = Yii::$app->db->beginTransaction();
             try {
                 # 生成订单，扣除库存，但是，不清空购物车。
-                $genarateStatus = Yii::$service->order->generateOrderByCart($this->_billing, $this->_shipping_method, '', true, '', $this->_order_remark);
+                $genarateStatus = Yii::$service->order->generateOrderByCart($this->_billing, $this->_shipping_method, '', true);
                 if ($genarateStatus) {
                     // 得到当前的订单信息
                     //$orderInfo = Yii::$service->order->getCurrentOrderInfo();
@@ -190,6 +190,7 @@ class Placeorder extends \fecshop\app\appserver\modules\Checkout\block\onepage\P
             return 'shipping method can not empty';
         } 
         // 订单备注信息不能超过1500字符
+        /*
         $orderRemarkStrMaxLen = Yii::$service->order->orderRemarkStrMaxLen;
         $order_remark = isset($post['order_remark']) ? $post['order_remark'] : '';
         if ($order_remark && $orderRemarkStrMaxLen) {
@@ -203,6 +204,7 @@ class Placeorder extends \fecshop\app\appserver\modules\Checkout\block\onepage\P
                 $this->_order_remark = $order_remark;
             }
         }
+        */
         $this->_shipping_method = $shipping_method;
 
         return true;

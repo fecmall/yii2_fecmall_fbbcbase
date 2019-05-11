@@ -49,7 +49,6 @@ class Search extends \fecshop\models\mongodb\Search
             'sku',
             'score',
             'bdmin_user_id',
-            'warehouse',
             'status',
             'is_in_stock',
             'url_key',

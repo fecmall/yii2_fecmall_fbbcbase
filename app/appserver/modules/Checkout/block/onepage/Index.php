@@ -30,6 +30,8 @@ class Index extends \fecshop\app\appserver\modules\Checkout\block\onepage\Index
     protected $_cart_address;
     protected $_cart_info;
     protected $is_empty_cart = false;
+    protected $bdmin_info;
+    
     public function getLastData()
     {
         $this->_default_address = Yii::$service->customer->address->getDefaultAddress();
@@ -41,39 +43,32 @@ class Index extends \fecshop\app\appserver\modules\Checkout\block\onepage\Index
             return $responseData;
         }
         
-        $cartInfo = Yii::$service->cart->getCartInfo(true);
-        if (!isset($cartInfo['products']) || !is_array($cartInfo['products']) || empty($cartInfo['products'])) {
+        // 获取购物车信息
+        $cartInfo = Yii::$service->cart->getCartOrderInfo();
+        
+        // 如果购物车为空
+        if (empty($cartInfo) || !is_array($cartInfo)) {
             $code = Yii::$service->helper->appserver->order_generate_cart_product_empty;
             $data = [];
             $responseData = Yii::$service->helper->appserver->getResponseData($code, $data);
             
             return $responseData;
         }
+        
         $currency_info = Yii::$service->page->currency->getCurrencyInfo();
-        //$this->initAddress();
-        //$this->initCountry();
-        //$this->initState();
-        $shippings = $this->getShippings();
-        $last_cart_info = $this->getCartInfo(true, $this->_shipping_method, $this->_default_address['country'], $this->_default_address['state']);
-        $isGuest = 1;
-        if(!Yii::$app->user->isGuest){
-            $isGuest = 0;
-        }
+        // 获取处理后的购物车信息
+        
+        $last_cart_info = $this->getCartOrderInfo();
+        
         $code = Yii::$service->helper->appserver->status_success;
         $data = [
-            'shippings'                 => $shippings,
-            'current_shipping_method'   => $this->_shipping_method,
-            'cart_info'                 => $last_cart_info,  
+            'cart_info'                 => $last_cart_info['cart_details'],  
+            'all_count'   => $last_cart_info['all_count'],  
+            'all_total'   => Yii::$service->helper->format->number_format($last_cart_info['all_total']), 
+            'all_base_total'   => $last_cart_info['all_base_total'], 
+            'bdmin_info'                 => $this->bdmin_info,  
             'currency_info'             => $currency_info,
-            //'address_view_file'       => $this->_address_view_file,
-            //'is_empty_cart'             => $this->is_empty_cart,
-            'isGuest'                   => $isGuest,
             'default_address_list'              => $this->_default_address,
-            
-            //'cart_address'              => $this->_address,
-            //'cart_address_id'           => $this->_address_id,
-            //'countryArr'                => $this->_countrySelect,
-            //'country'                   => $this->_country,
             'show_coupon' => Yii::$service->helper->canShowUseCouponCode(),
         ];
         $responseData = Yii::$service->helper->appserver->getResponseData($code, $data);
@@ -104,38 +99,50 @@ class Index extends \fecshop\app\appserver\modules\Checkout\block\onepage\Index
      *                    本函数为从数据库中得到购物车中的数据，然后结合产品表
      *                    在加入一些产品数据，最终补全所有需要的信息。
      */
-    public function getCartInfo($activeProduct, $shipping_method, $country, $state)
+    public function getCartOrderInfo()
     {
+        $bdminArr = [];
         if (!$this->_cart_info) {
-            $cart_info = Yii::$service->cart->getCartInfo($activeProduct, $shipping_method, $country, $state);
-            if (isset($cart_info['products']) && is_array($cart_info['products'])) {
-                foreach ($cart_info['products'] as $k=>$product_one) {
-                    // 设置名字，得到当前store的语言名字。
-                    $cart_info['products'][$k]['name'] = Yii::$service->store->getStoreAttrVal($product_one['product_name'], 'name');
+            $postShippingMethod = Yii::$app->request->post('shipping_method');
+            $cartOrderInfo = Yii::$service->cart->getCartOrderInfo($postShippingMethod);
+            
+            $cart_info = $cartOrderInfo['cart_info'];
+            if (!is_array($cart_info) || empty($cart_info)) {
+                return null;
+            }
+            foreach ($cart_info as $bdmin_user_id => $bdminCart) {
+                $products = $bdminCart['products'];
+                $bdminArr[] = $bdmin_user_id;
+                foreach ($products  as $k => $product_one) {
+                    $cart_info[$bdmin_user_id]['products'][$k]['name'] = Yii::$service->store->getStoreAttrVal($product_one['product_name'], 'name');
                     // 设置图片
                     if (isset($product_one['product_image']['main']['image'])) {
                         $image = $product_one['product_image']['main']['image'];
-                        $cart_info['products'][$k]['imgUrl'] = Yii::$service->product->image->getResize($image,[100,100],false);
+                        $cart_info[$bdmin_user_id]['products'][$k]['imgUrl'] = Yii::$service->product->image->getResize($image,[100,100],false);
                     }
-                    // 产品的url
-                    //$cart_info['products'][$k]['url'] = Yii::$service->url->getUrl($product_one['product_url']);
                     $custom_option = isset($product_one['custom_option']) ? $product_one['custom_option'] : '';
                     $custom_option_sku = $product_one['custom_option_sku'];
                     // 将在产品页面选择的颜色尺码等属性显示出来。
                     $custom_option_info_arr = $this->getProductOptions($product_one, $custom_option_sku);
-                    $cart_info['products'][$k]['custom_option_info'] = $custom_option_info_arr;
+                    $cart_info[$bdmin_user_id]['products'][$k]['custom_option_info'] = $custom_option_info_arr;
                     // 设置相应的custom option 对应的图片
                     $custom_option_image = isset($custom_option[$custom_option_sku]['image']) ? $custom_option[$custom_option_sku]['image'] : '';
                     if ($custom_option_image) {
-                        $cart_info['products'][$k]['image'] = $custom_option_image;
-                    }
+                        $cart_info[$bdmin_user_id]['products'][$k]['image'] = $custom_option_image;
+                    } 
                 }
-            }else{
-                $this->is_empty_cart = true;
             }
-            $this->_cart_info = $cart_info;
+            $this->_cart_info = [
+                'cart_details' => $cart_info,
+                'all_count'  => $cartOrderInfo['all_count'],
+                'all_total' => $cartOrderInfo['all_total'],
+                'all_base_total' => $cartOrderInfo['all_base_total'],
+            ];
+            if (!empty($bdminArr)) {
+                $this->bdmin_info = Yii::$service->bdminUser->getIdAndNameArrByIds($bdminArr);
+            }
         }
-
+        
         return $this->_cart_info;
     }
 

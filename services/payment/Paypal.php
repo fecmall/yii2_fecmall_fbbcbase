@@ -250,37 +250,54 @@ class Paypal extends \fecshop\services\payment\Paypal
     protected function isNotDistort()
     {
         //Yii::$app->mylog->log("begin isNotDistort..");
-        $increment_id = $this->_postData['invoice'];
+        $trade_no = $this->_postData['invoice'];
         $mc_gross = $this->_postData['mc_gross'];
         $mc_currency = $this->_postData['mc_currency'];
 
-        if ($increment_id && $mc_gross && $mc_currency) {
-            $this->_order = Yii::$service->order->getByIncrementId($increment_id);
-            if ($this->_order) {
-                $order_currency_code = $this->_order['order_currency_code'];
-                if ($order_currency_code == $mc_currency) {
-                    // 核对订单总额
-                    $currentCurrencyGrandTotal = $this->_order['grand_total'];
-                    // if (round($currentCurrencyGrandTotal, 2) == round($mc_gross, 2)) {
-                    // 因为float精度问题，使用高精度函数进行比较，精度到2位小数
-                    if(bccomp($currentCurrencyGrandTotal, $mc_gross, 2) == 0){
-                        return true;
-                    } else {
-                    }
-                } else {
+        if ($trade_no && $mc_gross && $mc_currency) {
+            //$orders = Yii::$service->order->getOrdersByTradeNo($trade_no);
+            $this->ipn_order_models  = Yii::$service->order->getOrderModelsByTradeNo($trade_no);
+            $currentCurrencyGrandTotal = 0;
+            $order_currency_code = '';
+            if (is_array($this->ipn_order_models) || !empty($this->ipn_order_models)) {
+                foreach ($this->ipn_order_models as $order) {
+                    $currentCurrencyGrandTotal += $order['grand_total'];
+                    $order_currency_code = $order['order_currency_code'];
                 }
             }
+        
+           if ($order_currency_code == $mc_currency) {
+                // 核对订单总额
+                // 因为float精度问题，使用高精度函数进行比较，精度到2位小数
+                if(bccomp($currentCurrencyGrandTotal, $mc_gross, 2) == 0){
+                    return true;
+                } 
+            } 
         }
 
         return false;
     }
-
+    
+    protected $ipn_order_models;
     /**
      * @param $orderstatus | String 订单状态
      * 根据接收的ipn消息，更改订单状态。
      */
     protected function updateOrderStatusByIpn($orderstatus = '')
     {
+        //$this->ipn_order_models  = Yii::$service->order->getInfosByPaymentToken($token);
+        
+        // $this->ipn_order_models
+        if (!$this->ipn_order_models) {
+            return false;
+        }
+        
+                      
+        $all_total = 0;               
+        foreach ($this->ipn_order_models as $orderModel) {
+            $all_total += $orderModel['grand_total'];
+        }
+        
         $order_cancel_status = Yii::$service->order->payment_status_canceled;
         // 如果订单状态被取消，那么不能进行支付。
         if ($this->_order->order_status == $order_cancel_status) {
@@ -288,6 +305,8 @@ class Paypal extends \fecshop\services\payment\Paypal
 
             return;
         }
+        $payment_fee = 0;
+        $base_payment_fee = 0;
         $updateArr = [];
         if ($this->_postData['txn_type']) {
             $updateArr['txn_type'] = $this->_postData['txn_type'];
@@ -311,9 +330,9 @@ class Paypal extends \fecshop\services\payment\Paypal
             $updateArr['charset'] = $this->_postData['charset'];
         }
         if ($this->_postData['mc_fee']) {
-            $updateArr['payment_fee'] = $this->_postData['mc_fee'];
+            $payment_fee = $this->_postData['mc_fee'];
             $currency = $this->_postData['mc_currency'];
-            $updateArr['base_payment_fee'] = Yii::$service->page->currency->getBaseCurrencyPrice($this->_postData['mc_fee'], $currency);
+            $base_payment_fee = Yii::$service->page->currency->getBaseCurrencyPrice($this->_postData['mc_fee'], $currency);
         }
         if ($this->_postData['payment_type']) {
             $updateArr['payment_type'] = $this->_postData['payment_type'];
@@ -333,15 +352,17 @@ class Paypal extends \fecshop\services\payment\Paypal
             
         if ($orderstatus) {
             $updateArr['order_status'] = $orderstatus;
-            $this->_order->updateAll(
+            foreach ($this->ipn_order_models as $orderModel) {
+                $orderModel->updateAll(
                     $updateArr,
                     [
                         'and',
-                        ['order_id' => $this->_order['order_id']],
+                        ['order_id' => $orderModel['order_id']],
                         ['in', 'order_status', $this->_allowChangOrderStatus],
                         ['order_operate_status' => Yii::$service->order->operate_status_normal],
                     ]
                 );
+            }
         // 指定了订单状态
                 // $this->_order->order_status = $orderstatus;
                 // $this->_order->save();
@@ -354,44 +375,53 @@ class Paypal extends \fecshop\services\payment\Paypal
                 // 只有存在于 $this->_allowChangOrderStatus 数组的状态，才允许更改，按照目前的设置，取消了的订单是不允许更改的
                 $orderstatus = Yii::$service->order->payment_status_confirmed;
                 $updateArr['order_status'] = $orderstatus;
-                $updateColumn = $this->_order->updateAll(
-                        $updateArr,
-                        [
-                            'and',
-                            ['order_id' => $this->_order['order_id']],
-                            ['in', 'order_status', $this->_allowChangOrderStatus],
-                            ['order_operate_status' => Yii::$service->order->operate_status_normal],
-                        ]
-                    );
-                //$this->_order->order_status = Yii::$service->order->payment_status_processing;
-                // 更新订单信息
-                //$this->_order->save();
-                // 因为IPN消息可能不止发送一次，但是这里只允许一次，
-                // 如果重复发送，$updateColumn 的更新返回值将为0
-                if (!empty($updateColumn)) {
-                    Yii::$service->order->orderPaymentCompleteEvent($this->_order['increment_id']);
-                    
-                    // 订单操作日志
-                    $logType = Yii::$service->order->processLog->order_payment_confirm;
-                    Yii::$service->order->processLog->consoleAdd($this->_order, $logType);
+                
+                foreach ($this->ipn_order_models as $orderModel) {
+                    $order_grand_total = $orderModel['grand_total'];
+                    $updateArr['payment_fee'] = Yii::$service->helper->format->number_format($payment_fee * $order_grand_total / $all_total);
+                    $updateArr['base_payment_fee'] = Yii::$service->page->currency->getBaseCurrencyPrice($updateArr['payment_fee'], $currency);
+          
+                    $updateColumn = $orderModel->updateAll(
+                            $updateArr,
+                            [
+                                'and',
+                                ['order_id' => $orderModel['order_id']],
+                                ['in', 'order_status', $this->_allowChangOrderStatus],
+                                ['order_operate_status' => Yii::$service->order->operate_status_normal],
+                            ]
+                        );
+                    //$this->_order->order_status = Yii::$service->order->payment_status_processing;
+                    // 更新订单信息
+                    //$this->_order->save();
+                    // 因为IPN消息可能不止发送一次，但是这里只允许一次，
+                    // 如果重复发送，$updateColumn 的更新返回值将为0
+                    if (!empty($updateColumn)) {
+                        Yii::$service->order->orderPaymentCompleteEvent($this->_order['increment_id']);
                         
-                    // 上面的函数已经执行下面的代码，因此注释掉。
-                    // $orderInfo = Yii::$service->order->getOrderInfoByIncrementId($this->_order['increment_id']);
-                    // 发送新订单邮件
-                    // Yii::$service->email->order->sendCreateEmail($orderInfo);
+                        // 订单操作日志
+                        $logType = Yii::$service->order->processLog->order_payment_confirm;
+                        Yii::$service->order->processLog->consoleAdd($this->_order, $logType);
+                            
+                        // 上面的函数已经执行下面的代码，因此注释掉。
+                        // $orderInfo = Yii::$service->order->getOrderInfoByIncrementId($this->_order['increment_id']);
+                        // 发送新订单邮件
+                        // Yii::$service->email->order->sendCreateEmail($orderInfo);
+                    }
                 }
             } elseif ($payment_status == $this->payment_status_pending) {
                 // pending 代表信用卡预付方式，需要等待paypal从信用卡中把钱扣除，因此订单状态是processing
                 $orderstatus = Yii::$service->order->payment_status_processing;
                 $updateArr['order_status'] = $orderstatus;
-                $updateColumn = $this->_order->updateAll(
+                foreach ($this->ipn_order_models as $orderModel) {
+                    $updateColumn = $orderModel->updateAll(
                         $updateArr,
                         [
                             'and',
-                            ['order_id' => $this->_order['order_id']],
+                            ['order_id' => $orderModel['order_id']],
                             ['order_status' => Yii::$service->order->payment_status_pending]
                         ]
                     );
+                }
             } elseif ($payment_status == $this->payment_status_failed) {
                 // 暂不处理
             } elseif ($payment_status == $this->payment_status_refunded) {
@@ -558,23 +588,35 @@ class Paypal extends \fecshop\services\payment\Paypal
         $nvp_array['ADDROVERRIDE'] = 0;
         //ADDROVERRIDE
         // 得到购物车的信息，通过购物车信息填写。
-        $orderInfo      = Yii::$service->order->getInfoByPaymentToken($token);
-        //$cartInfo     = Yii::$service->cart->getCartInfo(true);
-        $currency       = Yii::$service->page->currency->getCurrentCurrency();
-        $grand_total    = Yii::$service->helper->format->number_format($orderInfo['grand_total']);
-        $subtotal       = Yii::$service->helper->format->number_format($orderInfo['subtotal']);
-        $shipping_total = Yii::$service->helper->format->number_format($orderInfo['shipping_total']);
-        $discount_amount= Yii::$service->helper->format->number_format($orderInfo['subtotal_with_discount']);
-        $subtotal       = $subtotal - $discount_amount;
+        $orderInfos      = Yii::$service->order->getInfosByPaymentToken($token);
+        
+        $currency = '';
+        $grand_total = 0;
+        $subtotal = 0;
+        $shipping_total = 0;
+        $discount_amount = 0;
+        $subtotal = 0;
+        $products = [];
+        // 将订单信息合并计算
+        foreach($orderInfos as $orderInfo) {
+            $currency       = $orderInfo['order_currency_code'];
+            $grand_total    += Yii::$service->helper->format->number_format($orderInfo['grand_total']);
+            $subtotal_s       = Yii::$service->helper->format->number_format($orderInfo['subtotal']);
+            $shipping_total += Yii::$service->helper->format->number_format($orderInfo['shipping_total']);
+            $discount_amount_s = $orderInfo['subtotal_with_discount'] ? $orderInfo['subtotal_with_discount'] : 0;
+            $subtotal  += $subtotal_s - $discount_amount_s;
+            $discount_amount += $discount_amount_s;
+            $products = array_merge($products, $orderInfo['products']);
+            $nvp_array['PAYMENTREQUEST_0_SHIPTOSTREET']         = $orderInfo['customer_address_street1'].' '.$orderInfo['customer_address_street2'];
+            $nvp_array['PAYMENTREQUEST_0_SHIPTOCITY']           = $orderInfo['customer_address_city'];
+            $nvp_array['PAYMENTREQUEST_0_SHIPTOSTATE']          = $orderInfo['customer_address_state_name'];
+            $nvp_array['PAYMENTREQUEST_0_SHIPTOCOUNTRYCODE']    = $orderInfo['customer_address_country'];
+            $nvp_array['PAYMENTREQUEST_0_SHIPTOZIP']            = $orderInfo['customer_address_zip'];
+            $nvp_array['PAYMENTREQUEST_0_SHIPTONAME']           = $orderInfo['customer_firstname'].' '.$orderInfo['customer_lastname'];
+            $nvp_array['PAYMENTREQUEST_0_INVNUM']               = $orderInfo['payment_no'];
 
-        $nvp_array['PAYMENTREQUEST_0_SHIPTOSTREET']         = $orderInfo['customer_address_street1'].' '.$orderInfo['customer_address_street2'];
-        $nvp_array['PAYMENTREQUEST_0_SHIPTOCITY']           = $orderInfo['customer_address_city'];
-        $nvp_array['PAYMENTREQUEST_0_SHIPTOSTATE']          = $orderInfo['customer_address_state_name'];
-        $nvp_array['PAYMENTREQUEST_0_SHIPTOCOUNTRYCODE']    = $orderInfo['customer_address_country'];
-        $nvp_array['PAYMENTREQUEST_0_SHIPTOZIP']            = $orderInfo['customer_address_zip'];
-        $nvp_array['PAYMENTREQUEST_0_SHIPTONAME']           = $orderInfo['customer_firstname'].' '.$orderInfo['customer_lastname'];
-        $nvp_array['PAYMENTREQUEST_0_INVNUM']               = $orderInfo['increment_id'];
-
+        }
+        
         $nvp_array['PAYMENTREQUEST_0_CURRENCYCODE']         = $currency;
         $nvp_array['PAYMENTREQUEST_0_AMT']                  = $grand_total;
         $nvp_array['PAYMENTREQUEST_0_ITEMAMT']              = $subtotal;
@@ -584,7 +626,7 @@ class Paypal extends \fecshop\services\payment\Paypal
         }
         $i = 0;
 
-        foreach ($orderInfo['products'] as $item) {
+        foreach ($products as $item) {
             $nvp_array['L_PAYMENTREQUEST_0_QTY'.$i]     = $item['qty'];
             $nvp_array['L_PAYMENTREQUEST_0_NUMBER'.$i]  = $item['sku'];
             $nvp_array['L_PAYMENTREQUEST_0_AMT'.$i]     = Yii::$service->helper->format->number_format($item['price']);
@@ -639,7 +681,7 @@ class Paypal extends \fecshop\services\payment\Paypal
         $nvp_array['PAYMENTREQUEST_0_PAYMENTACTION'] = 'Sale';
         $nvp_array['VERSION'] = $this->version;
         // 得到购物车的信息，通过购物车信息填写。
-        $cartInfo = Yii::$service->cart->getCartInfo(true);
+        $cartInfo = Yii::$service->cart->getCartOrderInfo(true);
         $currency = Yii::$service->page->currency->getCurrentCurrency();
 
         $grand_total = $cartInfo['grand_total'];
@@ -692,19 +734,30 @@ class Paypal extends \fecshop\services\payment\Paypal
         } else {
             $nvp_array['CANCELURL'] = Yii::$service->payment->getStandardCancelUrl('paypal_standard');
         }
-        $nvp_array['PAYMENTREQUEST_0_PAYMENTACTION'] = 'Sale';
+        
         $nvp_array['VERSION'] = $this->version;
         // 得到购物车的信息，通过购物车信息填写。
-        $orderInfo      = Yii::$service->order->getCurrentOrderInfo();
-        //var_dump($orderInfo);
-        $currency       = $orderInfo['order_currency_code'];
-
-        $grand_total    = Yii::$service->helper->format->number_format($orderInfo['grand_total']);
-        $subtotal       = Yii::$service->helper->format->number_format($orderInfo['subtotal']);
-        $shipping_total = Yii::$service->helper->format->number_format($orderInfo['shipping_total']);
-        $discount_amount= $orderInfo['subtotal_with_discount'] ? $orderInfo['subtotal_with_discount'] : 0;
-        $subtotal = $subtotal - $discount_amount;
-
+        $orderInfos      = Yii::$service->order->getCurrentOrderInfos();
+        $nvp_array['PAYMENTREQUEST_0_PAYMENTACTION'] = 'Sale';
+        $currency = '';
+        $grand_total = 0;
+        $subtotal = 0;
+        $shipping_total = 0;
+        $discount_amount = 0;
+        $subtotal = 0;
+        $products = [];
+        // 将订单信息合并计算
+        foreach($orderInfos as $orderInfo) {
+            $currency       = $orderInfo['order_currency_code'];
+            $grand_total    += Yii::$service->helper->format->number_format($orderInfo['grand_total']);
+            $subtotal_s       = Yii::$service->helper->format->number_format($orderInfo['subtotal']);
+            $shipping_total += Yii::$service->helper->format->number_format($orderInfo['shipping_total']);
+            $discount_amount_s = $orderInfo['subtotal_with_discount'] ? $orderInfo['subtotal_with_discount'] : 0;
+            $subtotal  += $subtotal_s - $discount_amount_s;
+            $discount_amount += $discount_amount_s;
+            $products = array_merge($products, $orderInfo['products']);
+        }
+        
         $nvp_array['PAYMENTREQUEST_0_CURRENCYCODE'] = $currency;
         $nvp_array['PAYMENTREQUEST_0_AMT']          = $grand_total;
         $nvp_array['PAYMENTREQUEST_0_ITEMAMT']      = $subtotal;
@@ -714,18 +767,18 @@ class Paypal extends \fecshop\services\payment\Paypal
         }
         $i = 0;
 
-        foreach ($orderInfo['products'] as $item) {
+        foreach ($products as $item) {
             $nvp_array['L_PAYMENTREQUEST_0_QTY'.$i] = $item['qty'];
             $nvp_array['L_PAYMENTREQUEST_0_NUMBER'.$i] = $item['sku'];
             $nvp_array['L_PAYMENTREQUEST_0_AMT'.$i] = Yii::$service->helper->format->number_format($item['price']);
             $nvp_array['L_PAYMENTREQUEST_0_NAME'.$i] = $item['name'];
-            ;
+            
             $nvp_array['L_PAYMENTREQUEST_0_CURRENCYCODE'.$i] = $currency;
             $i++;
         }
         $nvp_array['L_PAYMENTREQUEST_0_NAME'.$i] = 'Discount';
         $nvp_array['L_PAYMENTREQUEST_0_AMT'.$i] = '-'.$discount_amount;
-        
+           
         //var_dump($nvp_array);
         //exit;
         return $this->getRequestUrlStrByArray($nvp_array);
@@ -774,82 +827,104 @@ class Paypal extends \fecshop\services\payment\Paypal
     public function updateOrderPayment($doCheckoutReturn, $token)
     {
         if ($doCheckoutReturn) {
-            $order = Yii::$service->order->getByPaymentToken($token);
             $order_cancel_status = Yii::$service->order->payment_status_canceled;
-            // 如果订单状态被取消，那么不能进行支付。
-            if ($order['order_status'] == $order_cancel_status) {
-                Yii::$service->helper->errors->add('The order status has been canceled and you can not pay for item ,you can create a new order to pay');
-
+            $orders = Yii::$service->order->getOrdersByByPaymentToken($token);
+            if (!is_array($orders) || empty($orders)) {
                 return false;
             }
+            $all_total = 0;
+            $order_currency_code = 0;
+            foreach ($orders as $order) {
+                if ($order['order_status'] == $order_cancel_status) {
+                    Yii::$service->helper->errors->add('The order status has been canceled and you can not pay for item ,you can create a new order to pay');
+
+                    return false;
+                }
+                $order_currency_code = $order['order_currency_code'];
+                $all_total += $order['grand_total'];
+            }
+            // 订单总额
+            $PAYMENTINFO_0_AMT = $doCheckoutReturn['PAYMENTINFO_0_AMT'];
+            // 手续费
+            $payment_fee = $doCheckoutReturn['PAYMENTINFO_0_FEEAMT'];
+            $currency = $doCheckoutReturn['PAYMENTINFO_0_CURRENCYCODE'];
+            $base_payment_fee = Yii::$service->page->currency->getBaseCurrencyPrice($payment_fee, $currency);
+            // 状态
+            $PAYMENTINFO_0_PAYMENTSTATUS = $doCheckoutReturn['PAYMENTINFO_0_PAYMENTSTATUS'];
+            
+            // 更新的数据
             $updateArr = [];
-            if ($order['increment_id']) {
-                //echo 'bbb';
-                $updateArr['txn_id'] = $doCheckoutReturn['PAYMENTINFO_0_TRANSACTIONID'];
-                $updateArr['txn_type'] = $doCheckoutReturn['PAYMENTINFO_0_TRANSACTIONTYPE'];
-                $PAYMENTINFO_0_AMT = $doCheckoutReturn['PAYMENTINFO_0_AMT'];
-                $updateArr['payment_fee'] = $doCheckoutReturn['PAYMENTINFO_0_FEEAMT'];
-
-                $currency = $doCheckoutReturn['PAYMENTINFO_0_CURRENCYCODE'];
-                $updateArr['base_payment_fee'] = Yii::$service->page->currency->getBaseCurrencyPrice($updateArr['payment_fee'], $currency);
-                $updateArr['payer_id'] = $this->getPayerID();
-
-                $updateArr['correlation_id'] = $doCheckoutReturn['CORRELATIONID'];
-                $updateArr['protection_eligibility'] = $doCheckoutReturn['PAYMENTINFO_0_PROTECTIONELIGIBILITY'];
-                $updateArr['protection_eligibility_type'] = $doCheckoutReturn['PAYMENTINFO_0_PROTECTIONELIGIBILITYTYPE'];
-                $updateArr['secure_merchant_account_id'] = $doCheckoutReturn['PAYMENTINFO_0_SECUREMERCHANTACCOUNTID'];
-                $updateArr['build'] = $doCheckoutReturn['BUILD'];
-                $updateArr['payment_type'] = $doCheckoutReturn['PAYMENTINFO_0_PAYMENTTYPE'];
-                $updateArr['paypal_order_datetime'] = date('Y-m-d H:i:s', $doCheckoutReturn['PAYMENTINFO_0_ORDERTIME']);
-                $PAYMENTINFO_0_PAYMENTSTATUS = $doCheckoutReturn['PAYMENTINFO_0_PAYMENTSTATUS'];
-                $updateArr['updated_at'] = time();
-                if (
-                    strtolower($PAYMENTINFO_0_PAYMENTSTATUS) == $this->payment_status_completed
-                    ||
-                    strtolower($PAYMENTINFO_0_PAYMENTSTATUS) == $this->payment_status_processed
-                ) {
-                    $order_status = Yii::$service->order->payment_status_confirmed;
-                    if ($currency == $order['order_currency_code'] && $PAYMENTINFO_0_AMT == $order['grand_total']) {
-                        $updateArr['order_status'] = $order_status;
+            $updateArr['txn_id'] = $doCheckoutReturn['PAYMENTINFO_0_TRANSACTIONID'];
+            $updateArr['txn_type'] = $doCheckoutReturn['PAYMENTINFO_0_TRANSACTIONTYPE'];
+            $updateArr['payer_id'] = $this->getPayerID();
+            $updateArr['correlation_id'] = $doCheckoutReturn['CORRELATIONID'];
+            $updateArr['protection_eligibility'] = $doCheckoutReturn['PAYMENTINFO_0_PROTECTIONELIGIBILITY'];
+            $updateArr['protection_eligibility_type'] = $doCheckoutReturn['PAYMENTINFO_0_PROTECTIONELIGIBILITYTYPE'];
+            $updateArr['secure_merchant_account_id'] = $doCheckoutReturn['PAYMENTINFO_0_SECUREMERCHANTACCOUNTID'];
+            $updateArr['build'] = $doCheckoutReturn['BUILD'];
+            $updateArr['payment_type'] = $doCheckoutReturn['PAYMENTINFO_0_PAYMENTTYPE'];
+            $updateArr['paypal_order_datetime'] = date('Y-m-d H:i:s', $doCheckoutReturn['PAYMENTINFO_0_ORDERTIME']);
+            $updateArr['updated_at'] = time();    
+             
+            if (
+                strtolower($PAYMENTINFO_0_PAYMENTSTATUS) == $this->payment_status_completed
+                ||
+                strtolower($PAYMENTINFO_0_PAYMENTSTATUS) == $this->payment_status_processed
+            ) {
+                $order_status = Yii::$service->order->payment_status_confirmed;
+                //var_dump($PAYMENTINFO_0_AMT , (string)$all_total);
+                //var_dump($currency , $order_currency_code);
+                if ($currency == $order_currency_code && $PAYMENTINFO_0_AMT == (string)$all_total) {
+                    $updateArr['order_status'] = $order_status;
+                    //echo 333;
+                    foreach ($orders as $order) {
+                        $order_grand_total = $order['grand_total'];
+                        // 根据金额，为每个订单平分订单手续费。
+                        $updateArr['payment_fee'] = Yii::$service->helper->format->number_format($payment_fee * $order_grand_total / $all_total);
+                        $updateArr['base_payment_fee'] = Yii::$service->page->currency->getBaseCurrencyPrice($updateArr['payment_fee'], $currency);
+                        
                         $updateColumn = $order->updateAll(
                             $updateArr,
                             [
                                 'and',
-                                ['order_id' => $this->_order['order_id']],
+                                ['order_id' => $order['order_id']],
                                 ['in', 'order_status', $this->_allowChangOrderStatus],
                                 ['order_operate_status' => Yii::$service->order->operate_status_normal],
                             ]
                         );
+                        
                         // 因为IPN消息可能不止发送一次，但是这里只允许一次，
                         // 如果重复发送，$updateColumn 的更新返回值将为0
                         if (!empty($updateColumn)) {
                             // 执行订单支付成功后的事情。
                             Yii::$service->order->orderPaymentCompleteEvent($order['increment_id']);
-                            // 上面的函数已经执行下面的代码，因此注释掉。
-                            // $orderInfo = Yii::$service->order->getOrderInfoByIncrementId($order['increment_id']);
-                            // Yii::$service->email->order->sendCreateEmail($orderInfo);
                         }
-                        return true;
-                    } else {
-                        // 金额不一致，判定为欺诈
-                        Yii::$service->helper->errors->add('The amount of payment is inconsistent with the amount of the order');
-                        $order_status = Yii::$service->order->payment_status_suspected_fraud;
-                        $updateArr['order_status'] = $order_status;
+                    }
+                    
+                    return true;
+                } else {
+                    // 金额不一致，判定为欺诈
+                    Yii::$service->helper->errors->add('The amount of payment is inconsistent with the amount of the order');
+                    $order_status = Yii::$service->order->payment_status_suspected_fraud;
+                    $updateArr['order_status'] = $order_status;
+                    foreach ($orders as $order) {
                         $updateColumn = $order->updateAll(
                             $updateArr,
                             [
                                 'and',
-                                ['order_id' => $this->_order['order_id']],
+                                ['order_id' => $order['order_id']],
                                 ['in', 'order_status', $this->_allowChangOrderStatus],
                                 ['order_operate_status' => Yii::$service->order->operate_status_normal],
                             ]
                         );
                     }
-                } elseif (strtolower($PAYMENTINFO_0_PAYMENTSTATUS) == $this->payment_status_pending) {
-                    // 这种情况代表paypal 信用卡预售，需要等待一段时间才知道是否收到钱
-                    $order_status = Yii::$service->order->payment_status_processing;
-                    if ($currency == $order['order_currency_code'] && $PAYMENTINFO_0_AMT == $order['grand_total']) {
-                        $updateArr['order_status'] = $order_status;
+                }
+            } elseif (strtolower($PAYMENTINFO_0_PAYMENTSTATUS) == $this->payment_status_pending) {
+                // 这种情况代表paypal 信用卡预售，需要等待一段时间才知道是否收到钱
+                $order_status = Yii::$service->order->payment_status_processing;
+                if ($currency == $order_currency_code && $PAYMENTINFO_0_AMT == (string)$all_total) {
+                    $updateArr['order_status'] = $order_status;
+                    foreach ($orders as $order) {
                         $updateColumn = $order->updateAll(
                             $updateArr,
                             [
@@ -858,30 +933,31 @@ class Paypal extends \fecshop\services\payment\Paypal
                                 ['order_status' => Yii::$service->order->payment_status_pending]
                             ]
                         );
-                        // 这种情况并没有接收到paypal的钱，只是一种支付等待状态，
-                        // 因此，对于这种支付状态，视为正常订单，但是没有支付成功，需要延迟等待，如果支付成功，paypal会继续发送IPN消息。
-                        return true;
-                    } else {
-                        // 金额不一致，判定为欺诈
-                        Yii::$service->helper->errors->add('The amount of payment is inconsistent with the amount of the order');
-                        $order_status = Yii::$service->order->payment_status_suspected_fraud;
-                        $updateArr['order_status'] = $order_status;
+                    }
+                    // 这种情况并没有接收到paypal的钱，只是一种支付等待状态，
+                    // 因此，对于这种支付状态，视为正常订单，但是没有支付成功，需要延迟等待，如果支付成功，paypal会继续发送IPN消息。
+                    return true;
+                } else {
+                    // 金额不一致，判定为欺诈
+                    Yii::$service->helper->errors->add('The amount of payment is inconsistent with the amount of the order');
+                    $order_status = Yii::$service->order->payment_status_suspected_fraud;
+                    $updateArr['order_status'] = $order_status;
+                    foreach ($orders as $order) {
                         $updateColumn = $order->updateAll(
                             $updateArr,
                             [
                                 'and',
-                                ['order_id' => $this->_order['order_id']],
+                                ['order_id' => $order['order_id']],
                                 ['in', 'order_status', $this->_allowChangOrderStatus],
                                 ['order_operate_status' => Yii::$service->order->operate_status_normal],
                             ]
                         );
                     }
-                } else {
-                    Yii::$service->helper->errors->add('paypal payment is not complete , current payment status is {payment_status}', ['payment_status' => $PAYMENTINFO_0_PAYMENTSTATUS]);
                 }
             } else {
-                Yii::$service->helper->errors->add('current order is not exist');
+                Yii::$service->helper->errors->add('paypal payment is not complete , current payment status is {payment_status}', ['payment_status' => $PAYMENTINFO_0_PAYMENTSTATUS]);
             }
+            
         } else {
             Yii::$service->helper->errors->add('CheckoutReturn is empty');
         }

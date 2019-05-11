@@ -91,26 +91,6 @@ class HomeController extends \fecshop\app\appserver\modules\Cms\controllers\Home
                 ['in', 'sku', $skus]
             ];
             
-            // 供应商权限
-            if (Yii::$service->helper->isLoginCustomerOnlySeeSupplierProduct()) {
-                $identity = Yii::$app->user->identity;
-                $bdmin_user_id = $identity['bdmin_user_id'];
-                $filter['where'][] = ['bdmin_user_id' => $bdmin_user_id];
-            }
-            // 推广store uuid权限
-            if ($bdmin_user_id = Yii::$service->helper->getGuestUrlParamRelateBdminUserId()) {
-                $filter['where'][] = ['bdmin_user_id' => $bdmin_user_id];
-            }
-            // 仓库权限过滤
-            if (Yii::$service->helper->isLoginCustomerOnlySeeSelectedWarehouseProduct()) {
-                $identity = Yii::$app->user->identity; 
-                $warehouses = $identity['warehouses']; 
-                $warehouseArr = explode(',', $warehouses);
-                if (empty($warehouseArr) || is_array($warehouseArr)) {
-                    $filter['where'][] = ['in', 'warehouse', $warehouseArr];
-                }
-            }
-            
             $products = Yii::$service->product->getProducts($filter);
             //var_dump($products);
             $products = Yii::$service->category->product->convertToCategoryInfo($products);

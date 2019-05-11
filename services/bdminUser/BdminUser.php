@@ -176,10 +176,6 @@ class BdminUser extends Service
         if (!$data['auth_key']) {
             $this->_userFormModel->auth_key = '';
         }
-        if (!$this->_userFormModel->uuid) {
-            $this->_userFormModel->uuid = Yii::$service->helper->getUuidString();
-        }
-        
         if ($this->_userFormModel->validate()) {
             $this->_userFormModel->save();
             $user_id = $this->_userFormModel[$primaryKey];
