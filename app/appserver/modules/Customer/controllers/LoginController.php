@@ -52,8 +52,11 @@ class LoginController extends AppserverController
         }
         $accessToken = Yii::$service->customer->loginAndGetAccessToken($email,$password);
         if($accessToken){
+            $cartQty = Yii::$service->cart->getCartItemQty();
             $code = Yii::$service->helper->appserver->status_success;
-            $data = [];
+            $data = [
+                'cart_qty' => $cartQty,
+            ];
             $responseData = Yii::$service->helper->appserver->getResponseData($code, $data);
             
             return $responseData;

@@ -54,10 +54,12 @@ class SuccessController extends AppserverController
         Yii::$service->cart->clearCartProductAndCoupon();
         // 清空session中存储的当前订单编号。
         Yii::$service->order->removeSessionTradeNo();
+        $cartQty = Yii::$service->cart->getCartItemQty();
         $code = Yii::$service->helper->appserver->status_success;
         $data = [ 
             'increment_ids'  => implode(',', $increment_id_arr),
             'orders'         => $order_model_arr,
+            'cart_qty' => $cartQty,
         ];
         $responseData = Yii::$service->helper->appserver->getResponseData($code, $data);
         
