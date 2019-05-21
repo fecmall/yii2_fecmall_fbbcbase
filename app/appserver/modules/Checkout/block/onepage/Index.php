@@ -113,6 +113,10 @@ class Index extends \fecshop\app\appserver\modules\Checkout\block\onepage\Index
             foreach ($cart_info as $bdmin_user_id => $bdminCart) {
                 $products = $bdminCart['products'];
                 $bdminArr[] = $bdmin_user_id;
+                $cart_info[$bdmin_user_id]['grand_total'] = Yii::$service->helper->format->number_format($cart_info[$bdmin_user_id]['grand_total']);
+                $cart_info[$bdmin_user_id]['product_total'] = Yii::$service->helper->format->number_format($cart_info[$bdmin_user_id]['product_total']);
+                
+                
                 foreach ($products  as $k => $product_one) {
                     $cart_info[$bdmin_user_id]['products'][$k]['name'] = Yii::$service->store->getStoreAttrVal($product_one['product_name'], 'name');
                     // 设置图片
@@ -135,8 +139,8 @@ class Index extends \fecshop\app\appserver\modules\Checkout\block\onepage\Index
             $this->_cart_info = [
                 'cart_details' => $cart_info,
                 'all_count'  => $cartOrderInfo['all_count'],
-                'all_total' => $cartOrderInfo['all_total'],
-                'all_base_total' => $cartOrderInfo['all_base_total'],
+                'all_total' => Yii::$service->helper->format->number_format($cartOrderInfo['all_total']),
+                'all_base_total' => Yii::$service->helper->format->number_format($cartOrderInfo['all_base_total']) ,
             ];
             if (!empty($bdminArr)) {
                 $this->bdmin_info = Yii::$service->bdminUser->getIdAndNameArrByIds($bdminArr);
