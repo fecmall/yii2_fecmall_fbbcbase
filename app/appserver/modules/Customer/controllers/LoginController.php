@@ -36,7 +36,7 @@ class LoginController extends AppserverController
             
             return $responseData;
         }
-        $phone       = Yii::$app->request->post('phone');
+        $email       = Yii::$app->request->post('email');
         $password    = Yii::$app->request->post('password');
         $loginParam  = \Yii::$app->getModule('customer')->params['login'];
         $loginCaptchaActive = isset($loginParam['loginPageCaptcha']) ? $loginParam['loginPageCaptcha'] : false;
@@ -50,7 +50,7 @@ class LoginController extends AppserverController
                 return $responseData;
             }
         }
-        $accessToken = Yii::$service->customer->loginAndGetAccessToken($phone,$password);
+        $accessToken = Yii::$service->customer->loginAndGetAccessToken($email,$password);
         if($accessToken){
             $code = Yii::$service->helper->appserver->status_success;
             $data = [];

@@ -24,6 +24,7 @@ return [
     'My Order'                      => '我的订单',
     'My Account'                    => '我的账户',
     'Site Map'                        => '网站地图',
+    'current password is not correct' =>  '当前的密码不正确',
     // 'Follow'                        => '关注我们',
     // 'Newsletter'                    => '订阅邮件',
     // 'All rights reserved'            => '保留所有权利',

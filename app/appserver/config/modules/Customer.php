@@ -13,7 +13,7 @@ return [
             'address' => 'fbbcbase\app\appserver\modules\Customer\controllers\AddressController',                       
             'register' => 'fbbcbase\app\appserver\modules\Customer\controllers\RegisterController',       
             'login' => 'fbbcbase\app\appserver\modules\Customer\controllers\LoginController',       
-            
+            'editaccount' => 'fbbcbase\app\appserver\modules\Customer\controllers\EditaccountController',  
         ],
         'params'=> [
             'register' => [

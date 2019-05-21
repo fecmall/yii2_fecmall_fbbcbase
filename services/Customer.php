@@ -21,7 +21,7 @@ class Customer extends \fecshop\services\Customer
     
     protected $_customerRegisterModelName = '\fbbcbase\models\mysqldb\customer\CustomerRegister';
     protected $_customerModelName = '\fbbcbase\models\mysqldb\Customer';
-    protected $_customerLoginModelName = '\fbbcbase\models\mysqldb\customer\CustomerLogin';
+    protected $_customerLoginModelName = '\fecshop\models\mysqldb\customer\CustomerLogin';
     
     /**
      * Register customer account.
@@ -131,14 +131,14 @@ class Customer extends \fecshop\services\Customer
     {
         $model = $this->_customerLoginModel;
         $model->password = $data['password'];
-        $model->phone = $data['phone'];
+        $model->email = $data['email'];
         $loginStatus = $model->login();
         $errors = $model->errors;
         if (empty($errors)) {
             // 合并购物车数据
             Yii::$service->cart->mergeCartAfterUserLogin();
             // 发送登录信息到trace系统
-            Yii::$service->page->trace->sendTraceLoginInfoByApi($data['phone']);
+            Yii::$service->page->trace->sendTraceLoginInfoByApi($data['email']);
         } else {
             Yii::$service->helper->errors->addByModelErrors($errors);
         }
@@ -147,13 +147,13 @@ class Customer extends \fecshop\services\Customer
     }
     
     /** AppServer 部分使用的函数
-     * @param $phone | String
+     * @param $email | String
      * @param $password | String
      * 无状态登录，通过email 和password进行登录
      * 登录成功后，合并购物车，返回accessToken
      * ** 该函数是未登录用户，通过参数进行登录需要执行的函数。
      */
-    protected function actionLoginAndGetAccessToken($phone, $password)
+    protected function actionLoginAndGetAccessToken($email, $password)
     {
         $header = Yii::$app->request->getHeaders();
         if (isset($header['access-token']) && $header['access-token']) {
@@ -172,7 +172,7 @@ class Customer extends \fecshop\services\Customer
         }
         // 如果上面access-token不存在
         $data = [
-            'phone'     => $phone,
+            'email'     => $email,
             'password'  => $password,
         ];
         
