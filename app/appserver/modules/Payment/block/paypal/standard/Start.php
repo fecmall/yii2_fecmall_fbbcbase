@@ -19,6 +19,7 @@ class Start
 {
     public function startPayment()
     {
+        
         $methodName_ = 'SetExpressCheckout';
         $return_url = Yii::$app->request->post('return_url');
         $cancel_url = Yii::$app->request->post('cancel_url');
@@ -27,15 +28,17 @@ class Start
         //echo $nvpStr_;exit;
         // 通过接口，得到token信息
         $checkoutReturn = Yii::$service->payment->paypal->PPHttpPost5($methodName_, $nvpStr_);
-        
+        //var_dump($checkoutReturn);exit;
         if (strtolower($checkoutReturn['ACK']) == 'success') {
             $token = $checkoutReturn['TOKEN'];
             $trade_no = Yii::$service->order->getSessionTradeNo();
             //echo $increment_id ;exit;
             # 将token写入到订单中
+            //var_dump([$trade_no,$token]); exit;
             Yii::$service->order->updateTokenByTradeNo($trade_no,$token);
             $redirectUrl = Yii::$service->payment->paypal->getStandardCheckoutUrl($token);
             $code = Yii::$service->helper->appserver->status_success;
+            //echo $redirectUrl;exit;
             $data = [
                 'redirectUrl' => $redirectUrl,
             ];

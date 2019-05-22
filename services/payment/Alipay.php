@@ -41,6 +41,11 @@ class Alipay extends \fecshop\services\payment\Alipay
     public $signType;
     
     public $devide;
+    
+    public $env_dev = 'env_dev';
+    public $env_prod = 'env_prod';
+    
+    
 
     public $apiVersion = '1.0'; //'1.0';
     
@@ -98,6 +103,30 @@ class Alipay extends \fecshop\services\payment\Alipay
             Yii::$service->order->payment_status_pending,
             Yii::$service->order->payment_status_processing,
         ];
+        $this->getCustomerAlipayConfig();
+
+    }
+    public function getEnvArr()
+    {
+        return [
+            $this->env_dev => Yii::$service->page->translate->__('alipay_'.$this->env_dev),
+            $this->env_prod => Yii::$service->page->translate->__('alipay_'.$this->env_prod),
+        ];
+    }
+    public function getCustomerAlipayConfig()
+    {
+        // 查看收款方
+        $baseConfig =Yii::$service->systemConfig->getAdminBaseConfig();
+        //var_dump($baseConfig);exit;
+        $this->appId =  $baseConfig['alipay_appid'];
+        $this->sellerId =  $baseConfig['alipay_sellerid'];
+        $this->rsaPrivateKey =  $baseConfig['alipay_rsa_private_key'];
+        $this->alipayrsaPublicKey =  $baseConfig['alipay_rsa_public_key'];
+        if ($baseConfig['alipay_env'] ==  $this->env_prod) {
+            $this->gatewayUrl == 'https://openapi.alipay.com/gateway.do';
+        } else {
+            $this->gatewayUrl == 'https://openapi.alipaydev.com/gateway.do';
+        }
     }
 
     /**

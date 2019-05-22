@@ -40,8 +40,6 @@ class OrdercancelController extends SalesController
         $order_ids = Yii::$app->request->post('order_ids');
         $order_id_arr = explode(',', $order_ids);
         foreach ($order_id_arr as $order_id ) {
-            
-            
             $innerTransaction = Yii::$app->db->beginTransaction();
             try { 
                 if (!Yii::$service->order->process->bdminAuditCancelAcceptById($order_id)) {

@@ -237,20 +237,10 @@ class SystemConfig extends Service
     
     public function getCustomerFrontHomePageConfig()
     {
-        if (!Yii::$app->user->isGuest) {
-            $identity = Yii::$app->user->identity;
-            $bdmin_user_id = $identity['bdmin_user_id'];
-            $whereArr = [
-                'key' => $this->homePageKey,
-                'user_id' => $bdmin_user_id,
-                'type' => $this->bdminType,
-            ];
-        } else {
-            $whereArr = [
-                'key' => $this->homePageKey,
-                'type' => $this->adminType,
-            ];
-        }
+        $whereArr = [
+            'key' => $this->homePageKey,
+            'type' => $this->adminType,
+        ];
         
         $model = $this->getByKeyAndTypeAndUserId($whereArr) ; 
         if (!$model) {
@@ -322,6 +312,28 @@ class SystemConfig extends Service
         
         return $this->baseConfigContent;
     }
+    
+    protected $baseAdminConfigContent;
+    public function getAdminBaseConfig()
+    {
+        if (!$this->baseAdminConfigContent) {
+            $whereArr = [
+                'key' => $this->baseInfoKey,
+                'type' => $this->adminType,
+            ];
+            $model = $this->getByKeyAndTypeAndUserId($whereArr) ;
+            if (!$model) {
+                Yii::$service->helper->errors->add('get admin base config fail');
+
+                $this->baseAdminConfigContent = [];
+            } else {
+                $this->baseAdminConfigContent = $model['content'];
+            }
+        }
+
+        return $this->baseAdminConfigContent;
+    }
+
     
     
 }

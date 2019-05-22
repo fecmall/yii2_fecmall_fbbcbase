@@ -61,6 +61,15 @@ class Paypal extends \fecshop\services\payment\Paypal
     public $standard_payment_method;
 
     public $version = '109.0';
+    
+    public $env_dev = 'env_dev';
+    public $env_prod = 'env_prod';
+    
+    public $account;
+    public $password;
+    public $signature;
+    public $nvp_url;
+    public $webscr_url;
 
     public $crt_file;
 
@@ -90,6 +99,35 @@ class Paypal extends \fecshop\services\payment\Paypal
         $this->_allowChangOrderStatus = [
             Yii::$service->order->payment_status_pending,
             Yii::$service->order->payment_status_processing,
+        ];
+        $this->getCustomerPaypalConfig();
+    }
+    
+    
+    
+    public function getCustomerPaypalConfig()
+    {
+        // 查看收款方
+        $baseConfig =Yii::$service->systemConfig->getAdminBaseConfig();
+        //var_dump($baseConfig);exit;
+        $this->account =  $baseConfig['paypal_standard_account'];
+        $this->password =  $baseConfig['paypal_standard_password'];
+        $this->signature =  $baseConfig['paypal_standard_signature'];
+        
+        if ($baseConfig['paypal_standard_env'] ==  $this->env_prod) {
+            $this->nvp_url =  'https://api-3t.paypal.com/nvp';
+            $this->webscr_url =  'https://www.paypal.com/cgi-bin/webscr';
+        } else {
+            $this->nvp_url =  'https://api-3t.sandbox.paypal.com/nvp';
+            $this->webscr_url =  'https://www.sandbox.paypal.com/cgi-bin/webscr';
+        }
+    }
+    
+    public function getEnvArr()
+    {
+        return [
+            $this->env_dev => Yii::$service->page->translate->__('paypal_'.$this->env_dev),
+            $this->env_prod => Yii::$service->page->translate->__('paypal_'.$this->env_prod),
         ];
     }
 
@@ -163,11 +201,7 @@ class Paypal extends \fecshop\services\payment\Paypal
         $urlParamStr   .= '&cmd=_notify-validate';
         $urlParamStr    = substr($urlParamStr, 1);
         $current_payment_method = Yii::$service->payment->getPaymentMethod();
-        if ($current_payment_method == $this->standard_payment_method) {
-            $verifyUrl = Yii::$service->payment->getStandardWebscrUrl($this->standard_payment_method);
-        } else {
-            $verifyUrl = Yii::$service->payment->getExpressWebscrUrl($this->express_payment_method);
-        }
+        $verifyUrl = $this->webscr_url;
         $verifyUrl      = $verifyUrl.'?'.$urlParamStr;
 
         return $verifyUrl;
@@ -447,7 +481,7 @@ class Paypal extends \fecshop\services\payment\Paypal
     public function getExpressCheckoutUrl($token)
     {
         if ($token) {
-            $webscrUrl = Yii::$service->payment->getExpressWebscrUrl($this->express_payment_method);
+            $webscrUrl = $this->webscr_url;
 
             return $webscrUrl.'?cmd=_express-checkout&token='.urlencode($token);
         }
@@ -460,7 +494,7 @@ class Paypal extends \fecshop\services\payment\Paypal
     public function getStandardCheckoutUrl($token)
     {
         if ($token) {
-            $webscrUrl = Yii::$service->payment->getStandardWebscrUrl($this->standard_payment_method);
+            $webscrUrl = $this->webscr_url;
 
             return $webscrUrl.'?useraction=commit&cmd=_express-checkout&token='.urlencode($token);
         }
@@ -477,18 +511,16 @@ class Paypal extends \fecshop\services\payment\Paypal
     {
         $current_payment_method = Yii::$service->payment->getPaymentMethod();
         if ($current_payment_method == $this->standard_payment_method) {
-            $API_NvpUrl     = Yii::$service->payment->getStandardNvpUrl($this->standard_payment_method);
-            $API_Signature  = Yii::$service->payment->getStandardSignature($this->standard_payment_method);
-            $API_UserName   = Yii::$service->payment->getStandardAccount($this->standard_payment_method);
-            $API_Password   = Yii::$service->payment->getStandardPassword($this->standard_payment_method);
             $ipn_url        = Yii::$service->payment->getStandardIpnUrl($this->standard_payment_method);
         } else {
-            $API_NvpUrl = Yii::$service->payment->getExpressNvpUrl($this->express_payment_method);
-            $API_Signature  = Yii::$service->payment->getExpressSignature($this->express_payment_method);
-            $API_UserName   = Yii::$service->payment->getExpressAccount($this->express_payment_method);
-            $API_Password   = Yii::$service->payment->getExpressPassword($this->express_payment_method);
             $ipn_url        = Yii::$service->payment->getExpressIpnUrl($this->express_payment_method);
         }
+
+        $API_NvpUrl     = $this->nvp_url;
+        $API_Signature  = $this->signature;
+        $API_UserName   = $this->account;
+        $API_Password   = $this->password; 
+        
         // Set the API operation, version, and API signature in the request.
         $nvpreq  =  "METHOD=$methodName_&PWD=$API_Password&USER=$API_UserName&SIGNATURE=$API_Signature$nvpStr_";
         $nvpreq .=  "&PAYMENTREQUEST_0_NOTIFYURL=".urlencode($ipn_url);
@@ -779,7 +811,6 @@ class Paypal extends \fecshop\services\payment\Paypal
         $nvp_array['L_PAYMENTREQUEST_0_NAME'.$i] = 'Discount';
         $nvp_array['L_PAYMENTREQUEST_0_AMT'.$i] = '-'.$discount_amount;
            
-        //var_dump($nvp_array);
         //exit;
         return $this->getRequestUrlStrByArray($nvp_array);
     }

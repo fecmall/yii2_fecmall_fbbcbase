@@ -143,7 +143,7 @@ class OrderController extends \fecshop\app\appserver\modules\Customer\controller
         try { 
             $requestCancelStatus = Yii::$service->order->process->customerRequestCancelByIncrementId($increment_id, $customer_id);
             if (!$requestCancelStatus) {
-                throw new \Exception('pay refund fail');
+                throw new \Exception('customer request order cancel fail');
             }
             $innerTransaction->commit();
         } catch (\Exception $e) {

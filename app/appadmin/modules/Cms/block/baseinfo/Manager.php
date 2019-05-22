@@ -28,6 +28,17 @@ class Manager extends AppadminbaseBlockEdit implements AppadminbaseBlockEditInte
     public $_type;
     protected $_attrArr = [
         'phone', 
+        'alipay_appid',
+        'alipay_sellerid',
+        'alipay_rsa_private_key',
+        'alipay_rsa_public_key',
+        'alipay_env',
+        'paypal_standard_env',
+        'paypal_standard_label',
+        'paypal_standard_account',
+        'paypal_standard_password',
+        'paypal_standard_signature',
+            
     ];
     
     public function init()
@@ -96,6 +107,90 @@ class Manager extends AppadminbaseBlockEdit implements AppadminbaseBlockEditInte
                 'require' => 0,
             ],
             
+            [
+                'label'  => Yii::$service->page->translate->__('alipay env'),
+                'name' => 'alipay_env',
+                'display' => [
+                    'type' => 'select',
+                    'data' => Yii::$service->payment->alipay->getEnvArr(),
+                ],
+                'require' => 1,
+            ],
+            
+            
+            
+            [
+                'label'  => Yii::$service->page->translate->__('alipay appid'),
+                'name' => 'alipay_appid',
+                'display' => [
+                    'type' => 'inputString',
+                ],
+                'require' => 0,
+            ],
+            [
+                'label'  => Yii::$service->page->translate->__('alipay sellerid'),
+                'name' => 'alipay_sellerid',
+                'display' => [
+                    'type' => 'inputString',
+                ],
+                'require' => 0,
+            ],
+            [
+                'label'  => Yii::$service->page->translate->__('alipay rsa private key'),
+                'name' => 'alipay_rsa_private_key',
+                'display' => [
+                    'type' => 'inputString',
+                ],
+                'require' => 0,
+            ],
+            
+            [
+                'label'  => Yii::$service->page->translate->__('alipay rsa public key'),
+                'name' => 'alipay_rsa_public_key',
+                'display' => [
+                    'type' => 'inputString',
+                ],
+                'require' => 0,
+            ],
+
+            [
+                'label'  => Yii::$service->page->translate->__('paypal standard env'),
+                'name' => 'paypal_standard_env',
+                'display' => [
+                    'type' => 'select',
+                    'data' => Yii::$service->payment->paypal->getEnvArr(),
+                ],
+                'require' => 1,
+            ],
+            
+            
+            
+            [
+                'label'  => Yii::$service->page->translate->__('paypal standard account'),
+                'name' => 'paypal_standard_account',
+                'display' => [
+                    'type' => 'inputString',
+                ],
+                'require' => 0,
+            ],
+            [
+                'label'  => Yii::$service->page->translate->__('paypal standard password'),
+                'name' => 'paypal_standard_password',
+                'display' => [
+                    'type' => 'inputString',
+                ],
+                'require' => 0,
+            ],
+            [
+                'label'  => Yii::$service->page->translate->__('paypal standard signature'),
+                'name' => 'paypal_standard_signature',
+                'display' => [
+                    'type' => 'inputString',
+                ],
+                'require' => 0,
+            ],
+            
+           
         ];
     }
     

@@ -39,6 +39,9 @@ return [
                     'sales' => [
                         'label' => 'Sales',
                         'child' => [
+                            'coupon' => [
+                                'active' => false,
+                            ],
                             'order' => [
                                 'label' => 'Order Info',
                                 'child' => [
