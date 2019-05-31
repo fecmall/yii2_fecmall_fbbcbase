@@ -45,10 +45,16 @@ class Customer extends \fecshop\services\Customer
         if ($model->validate()) {
             $model->created_at = time();
             $model->updated_at = time();
+            if (Yii::$service->email->customer->registerAccountIsNeedEnableByEmail) {
+                $model->generateRegisterEnableToken();
+                $model->status = $model::STATUS_REGISTER_DISABLE;
+            }
             
             $saveStatus = $model->save();
             if (!$saveStatus) {
-                Yii::$service->helper->errors->add('identity is not right');
+                $errors = $model->errors;
+                Yii::$service->helper->errors->addByModelErrors($errors);
+                
                 return false;
             }
             

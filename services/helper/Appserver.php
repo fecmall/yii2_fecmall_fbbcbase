@@ -445,6 +445,18 @@ class Appserver extends \fecshop\services\helper\Appserver
                 'message' => 'product is not exist or off the shelf',
             ],
             
+            $this->account_register_disable => [
+                'message' => 'account register is disable',
+            ],
+            $this->account_register_resend_email_success => [
+                'message' => 'account register resend email success',
+            ],
+            $this->account_register_send_email_fail => [
+                'message' => 'account_register_send_email_fail',
+            ],
+            $this->account_register_enable_token_invalid => [
+                'message' => 'account_register_enable_token_invalid',
+            ],
             
             $this->product_id_not_exist => [
                 'message' => 'product id is not exist',

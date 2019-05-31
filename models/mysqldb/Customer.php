@@ -35,6 +35,7 @@ class Customer extends ActiveRecord implements IdentityInterface
 {
     const STATUS_DELETED = 10;
     const STATUS_ACTIVE = 1;
+    const STATUS_REGISTER_DISABLE = 2;
 
     public static function tableName()
     {
@@ -45,7 +46,7 @@ class Customer extends ActiveRecord implements IdentityInterface
     {
         return [
             ['status', 'default', 'value' => self::STATUS_ACTIVE],
-            ['status', 'in', 'range' => [self::STATUS_ACTIVE, self::STATUS_DELETED]],
+            ['status', 'in', 'range' => [self::STATUS_ACTIVE, self::STATUS_REGISTER_DISABLE, self::STATUS_DELETED]],
         ];
     }
 
@@ -84,6 +85,13 @@ class Customer extends ActiveRecord implements IdentityInterface
     public static function findByEmail($email)
     {
         return static::findOne(['email' => $email, 'status' => self::STATUS_ACTIVE]);
+    }
+    public static function findAvailableByEmail($email)
+    {
+        return static::find()->where(['email' => $email])->andWhere(['in', 'status', [
+            self::STATUS_ACTIVE,
+            self::STATUS_REGISTER_DISABLE
+        ]])->one();
     }
     /**
      * Finds user by username.
@@ -129,6 +137,42 @@ class Customer extends ActiveRecord implements IdentityInterface
         $timestamp = (int) substr($token, strrpos($token, '_') + 1);
         //$expire = Yii::$app->params['user.passwordResetTokenExpire'];
         $expire = Yii::$service->email->customer->getPasswordResetTokenExpire();
+
+        return $timestamp + $expire >= time();
+    }
+    
+    /**
+     * Finds user by password reset token.
+     *
+     * @param string $token password reset token
+     * @return static|null
+     */
+    public static function findByRegisterEnableToken($token)
+    {
+        if (!static::isRegisterEnableTokenValid($token)) {
+            return null;
+        }
+
+        return static::findOne([
+            'register_enable_token' => $token,
+            'status' => self::STATUS_REGISTER_DISABLE,
+        ]);
+    }
+    
+    /**
+     * Finds out if password reset token is valid.
+     *
+     * @param  string $token password reset token
+     * @return bool
+     */
+    public static function isRegisterEnableTokenValid($token)
+    {
+        if (empty($token)) {
+            return false;
+        }
+        $timestamp = (int) substr($token, strrpos($token, '_') + 1);
+        //$expire = Yii::$app->params['user.passwordResetTokenExpire'];
+        $expire = Yii::$service->email->customer->getRegisterEnableTokenExpire();
 
         return $timestamp + $expire >= time();
     }
@@ -200,5 +244,21 @@ class Customer extends ActiveRecord implements IdentityInterface
     public function removePasswordResetToken()
     {
         $this->password_reset_token = null;
+    }
+    
+    /**
+     * Generates new password reset token.
+     */
+    public function generateRegisterEnableToken()
+    {
+        $this->register_enable_token = Yii::$app->security->generateRandomString() . '_' . time();
+    }
+
+    /**
+     * Removes password reset token.
+     */
+    public function removeRegisterEnableToken()
+    {
+        $this->register_enable_token = null;
     }
 }
